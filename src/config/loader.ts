@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { configDiscoveryStack, type ConfigPathOptions } from './paths.js';
 import { parseConfig, type Config } from './schema.js';
 import { z } from 'zod';
+import type { Logger } from '../adapters/logging.js';
 
 export class ConfigError extends Error {
   readonly code: string;
@@ -12,12 +13,17 @@ export class ConfigError extends Error {
   }
 }
 
-export interface LoadConfigOptions extends ConfigPathOptions {}
+export interface LoadConfigOptions extends ConfigPathOptions {
+  logger?: Logger;
+}
 
 export async function loadConfig(opts: LoadConfigOptions = {}): Promise<Config> {
+  opts.logger?.debug('config: loading', { cliConfigPath: opts.cliConfigPath });
   const fileConfig = await loadConfigFile(opts);
   const withEnv = applyEnvOverrides(fileConfig);
-  return validateConfig(withEnv);
+  const config = validateConfig(withEnv);
+  opts.logger?.debug('config: loaded successfully');
+  return config;
 }
 
 async function loadConfigFile(opts: LoadConfigOptions): Promise<Record<string, unknown>> {
@@ -76,6 +82,8 @@ const ENV_MAP: ReadonlyMap<string, { path: readonly string[]; type: 'string' | '
   ['SEITON_UI_SHOW_REVISION_DATE', { path: ['ui', 'show_revision_date'], type: 'boolean' }],
   ['SEITON_UI_COLOR_SCHEME', { path: ['ui', 'color_scheme'], type: 'string' }],
   ['SEITON_UI_PROMPT_STYLE', { path: ['ui', 'prompt_style'], type: 'string' }],
+  ['SEITON_LOGGING_FORMAT', { path: ['logging', 'format'], type: 'string' }],
+  ['SEITON_LOGGING_LEVEL', { path: ['logging', 'level'], type: 'string' }],
 ]);
 
 export function applyEnvOverrides(config: Record<string, unknown>): Record<string, unknown> {

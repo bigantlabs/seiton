@@ -5,6 +5,8 @@ import { VERSION } from './version.js';
 import { ExitCode } from './exit-codes.js';
 import { configShow } from './cli/commands/config.js';
 import { runDoctor } from './cli/commands/doctor.js';
+import { createLogger, createNoopLogger } from './adapters/logging.js';
+import { createSystemClock } from './adapters/clock.js';
 
 const HELP_TEXT = `seiton v${VERSION} — interactive Bitwarden vault auditor
 
@@ -69,9 +71,25 @@ async function main(): Promise<void> {
     process.exit(ExitCode.SUCCESS);
   }
 
+  const verboseCount = Array.isArray(args.values.verbose)
+    ? args.values.verbose.length
+    : args.values.verbose ? 1 : 0;
+
+  const log = verboseCount > 0
+    ? createLogger({
+        format: 'text',
+        level: verboseCount >= 2 ? 'debug' : 'info',
+        clock: createSystemClock(),
+      })
+    : createNoopLogger();
+
   const [positionalCommand, subcommand] = args.positionals;
+
+  log.info('seiton started', { command: positionalCommand, version: VERSION });
+
   if (positionalCommand === 'config' && subcommand === 'show') {
-    await configShow(args.values.config as string | undefined);
+    log.debug('dispatching config show');
+    await configShow(args.values.config as string | undefined, log);
     return;
   }
 

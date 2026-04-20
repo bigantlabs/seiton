@@ -1,6 +1,7 @@
 import { readFile, writeFile, rename, unlink, stat, lstat, mkdir } from 'node:fs/promises';
 import { join, resolve, dirname, relative } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import type { Logger } from './logging.js';
 
 export const FsErrorCode = {
   NOT_FOUND: 'FS_NOT_FOUND',
@@ -34,7 +35,7 @@ export interface FsAdapter {
   ensureDir(path: string): Promise<void>;
 }
 
-export function createFsAdapter(root?: string): FsAdapter {
+export function createFsAdapter(root?: string, logger?: Logger): FsAdapter {
   const resolvedRoot = root ? resolve(root) : undefined;
 
   function assertWithinRoot(targetPath: string): void {
@@ -65,6 +66,7 @@ export function createFsAdapter(root?: string): FsAdapter {
       const resolved = resolve(path);
       assertWithinRoot(resolved);
       await assertNotSymlink(resolved);
+      logger?.debug('fs: readText', { path: resolved });
       try {
         return await readFile(resolved, 'utf-8');
       } catch (err: unknown) {
@@ -76,6 +78,7 @@ export function createFsAdapter(root?: string): FsAdapter {
       const resolved = resolve(path);
       assertWithinRoot(resolved);
       await assertNotSymlink(resolved);
+      logger?.debug('fs: writeAtomic', { path: resolved, mode });
 
       const dir = dirname(resolved);
       const tempName = join(dir, `.seiton-tmp-${randomBytes(8).toString('hex')}`);
@@ -97,6 +100,7 @@ export function createFsAdapter(root?: string): FsAdapter {
     async remove(path: string): Promise<void> {
       const resolved = resolve(path);
       assertWithinRoot(resolved);
+      logger?.debug('fs: remove', { path: resolved });
       try {
         await unlink(resolved);
       } catch (err: unknown) {

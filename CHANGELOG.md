@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.2.5] - 2026-04-20
+
+### Added
+- **Logging facade** (`src/adapters/logging.ts`): Structured logging adapter supporting text and JSON formats, configurable log level (error/warn/info/debug), context sanitization that redacts unsafe `SEITON_*` env var values, injectable clock for deterministic timestamps. (M7)
 
 ## [0.2.4] - 2026-04-20
 

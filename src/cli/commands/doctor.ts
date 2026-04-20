@@ -2,6 +2,10 @@ import { parseArgs } from 'node:util';
 import { loadConfig, ConfigError } from '../../config/loader.js';
 import { ExitCode } from '../../exit-codes.js';
 import { getBwVersion } from '../../lib/bw.js';
+import { VERSION } from '../../version.js';
+import { createLogger, createNoopLogger, type Logger } from '../../adapters/logging.js';
+import { createSystemClock } from '../../adapters/clock.js';
+import { configDiscoveryStack } from '../../config/paths.js';
 
 const DOCTOR_HELP = `seiton doctor — preflight checks for bw, session, and config
 
@@ -30,6 +34,7 @@ export interface DoctorOptions {
   cliConfigPath?: string;
   envConfigPath?: string;
   debug?: boolean;
+  logger?: Logger;
 }
 
 interface CheckResult {
@@ -39,21 +44,33 @@ interface CheckResult {
 }
 
 export async function doctor(opts: DoctorOptions = {}): Promise<void> {
+  const log = opts.logger ?? createNoopLogger();
+
+  log.info('doctor command started', { version: VERSION });
+
   const results: CheckResult[] = [];
 
   results.push(checkNodeVersion());
   results.push(await checkBwBinary());
   results.push(checkBwSession());
   results.push(await checkConfig(opts));
+  results.push(checkVersion());
 
   const hasFail = results.some(r => r.status === 'fail');
+
+  log.info('doctor checks complete', {
+    passed: results.filter(r => r.status === 'ok').length,
+    failed: results.filter(r => r.status === 'fail').length,
+  });
 
   const output = results.map(formatCheck).join('\n') + '\n';
   process.stdout.write(output);
 
   if (hasFail) {
+    log.debug('doctor exiting with failure');
     process.exit(ExitCode.GENERAL_ERROR);
   }
+  log.debug('doctor exiting with success');
   process.exit(ExitCode.SUCCESS);
 }
 
@@ -101,7 +118,12 @@ async function checkConfig(opts: DoctorOptions): Promise<CheckResult> {
       cliConfigPath: opts.cliConfigPath,
       envConfigPath: opts.envConfigPath,
     });
-    return { name: 'config', status: 'ok', detail: 'valid' };
+    const candidates = configDiscoveryStack({
+      cliConfigPath: opts.cliConfigPath,
+      envConfigPath: opts.envConfigPath,
+    });
+    const location = candidates.length > 0 ? candidates[0]!.path : 'defaults';
+    return { name: 'config', status: 'ok', detail: `valid (${location})` };
   } catch (err: unknown) {
     if (err instanceof ConfigError) {
       return { name: 'config', status: 'fail', detail: err.message };
@@ -109,6 +131,10 @@ async function checkConfig(opts: DoctorOptions): Promise<CheckResult> {
     const msg = err instanceof Error ? err.message : String(err);
     return { name: 'config', status: 'fail', detail: msg };
   }
+}
+
+function checkVersion(): CheckResult {
+  return { name: 'version', status: 'ok', detail: `seiton v${VERSION}` };
 }
 
 function formatCheck(result: CheckResult): string {
@@ -143,12 +169,25 @@ export function parseDoctorArgs(argv: string[]): { help: boolean; opts: DoctorOp
     return { help: true, opts: {} };
   }
 
+  const verboseCount = Array.isArray(parsed.values.verbose)
+    ? parsed.values.verbose.length
+    : parsed.values.verbose ? 1 : 0;
+
+  const level = verboseCount >= 2 ? 'debug' as const
+    : verboseCount === 1 ? 'info' as const
+    : 'warn' as const;
+
+  const logger = verboseCount > 0
+    ? createLogger({ format: 'text', level, clock: createSystemClock() })
+    : createNoopLogger();
+
   return {
     help: false,
     opts: {
       cliConfigPath: parsed.values.config as string | undefined,
       envConfigPath: process.env['SEITON_CONFIG'],
       debug: parsed.values.debug as boolean | undefined,
+      logger,
     },
   };
 }

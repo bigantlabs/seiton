@@ -1,3 +1,5 @@
+import type { Logger } from './logging.js';
+
 export const ProcessErrorCode = {
   ENV_MISSING: 'PROCESS_ENV_MISSING',
   ENV_INVALID: 'PROCESS_ENV_INVALID',
@@ -28,6 +30,7 @@ export interface ProcessAdapter {
 export function createProcessAdapter(
   env: Record<string, string | undefined> = process.env,
   exitFn: (code: number) => never = (code) => process.exit(code),
+  logger?: Logger,
 ): ProcessAdapter {
   return {
     getEnv(name: string): string | undefined {
@@ -37,6 +40,7 @@ export function createProcessAdapter(
     requireEnv(name: string): string {
       const value = env[name];
       if (value === undefined || value === '') {
+        logger?.debug('process: requireEnv failed', { variable: name });
         throw new ProcessError(
           ProcessErrorCode.ENV_MISSING,
           name,
@@ -81,6 +85,7 @@ export function createProcessAdapter(
     },
 
     exit(code: number): never {
+      logger?.debug('process: exit', { code });
       return exitFn(code);
     },
 

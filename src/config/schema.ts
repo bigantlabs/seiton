@@ -57,7 +57,12 @@ const UiSchema = z.object({
   prompt_style: z.enum(['clack', 'plain']).default('clack'),
 }).strict();
 
-const SECTION_KEYS = ['core', 'paths', 'audit', 'strength', 'dedup', 'folders', 'ui'] as const;
+const LoggingSchema = z.object({
+  format: z.enum(['text', 'json']).default('text'),
+  level: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
+}).strict();
+
+const SECTION_KEYS = ['core', 'paths', 'audit', 'strength', 'dedup', 'folders', 'ui', 'logging'] as const;
 
 const RawConfigSchema = z.object({
   version: z.literal(1),
@@ -68,6 +73,7 @@ const RawConfigSchema = z.object({
   dedup: DedupSchema.optional(),
   folders: FoldersSchema.optional(),
   ui: UiSchema.optional(),
+  logging: LoggingSchema.optional(),
 }).strict();
 
 export function parseConfig(raw: unknown): { success: true; data: Config } | { success: false; error: z.ZodError } {
@@ -93,6 +99,7 @@ export type Config = z.output<typeof RawConfigSchema> & {
   dedup: z.output<typeof DedupSchema>;
   folders: z.output<typeof FoldersSchema>;
   ui: z.output<typeof UiSchema>;
+  logging: z.output<typeof LoggingSchema>;
 };
 
 export type CustomRule = z.infer<typeof CustomRuleSchema>;

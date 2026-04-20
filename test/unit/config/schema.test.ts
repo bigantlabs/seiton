@@ -142,6 +142,44 @@ describe('ConfigSchema', () => {
   });
 });
 
+describe('ConfigSchema logging section', () => {
+  it('fills defaults for logging when section is missing', () => {
+    const result = parseConfig({ version: 1 });
+    assert.ok(result.success);
+    assert.equal(result.data.logging.format, 'text');
+    assert.equal(result.data.logging.level, 'info');
+  });
+
+  it('accepts valid logging format values', () => {
+    const result = parseConfig({ version: 1, logging: { format: 'json' } });
+    assert.ok(result.success);
+    assert.equal(result.data.logging.format, 'json');
+  });
+
+  it('accepts valid logging level values', () => {
+    for (const level of ['error', 'warn', 'info', 'debug']) {
+      const result = parseConfig({ version: 1, logging: { level } });
+      assert.ok(result.success, `level "${level}" should be accepted`);
+      assert.equal(result.data.logging.level, level);
+    }
+  });
+
+  it('rejects invalid logging format', () => {
+    const result = parseConfig({ version: 1, logging: { format: 'yaml' } });
+    assert.ok(!result.success);
+  });
+
+  it('rejects invalid logging level', () => {
+    const result = parseConfig({ version: 1, logging: { level: 'trace' } });
+    assert.ok(!result.success);
+  });
+
+  it('rejects unknown keys in logging section', () => {
+    const result = parseConfig({ version: 1, logging: { format: 'text', unknown: true } });
+    assert.ok(!result.success);
+  });
+});
+
 describe('redactConfig', () => {
   it('redacts string values for sensitive keys', () => {
     const result = parseConfig({
