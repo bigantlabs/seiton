@@ -3,6 +3,7 @@
 import { parseArgs } from 'node:util';
 import { VERSION } from './version.js';
 import { ExitCode } from './exit-codes.js';
+import { configShow } from './cli/commands/config.js';
 
 const HELP_TEXT = `seiton v${VERSION} — interactive Bitwarden vault auditor
 
@@ -26,7 +27,7 @@ Global Flags:
 
 Run 'seiton <command> --help' for command-specific usage.`;
 
-function main(): void {
+async function main(): Promise<void> {
   let args: ReturnType<typeof parseArgs>;
   try {
     args = parseArgs({
@@ -35,6 +36,7 @@ function main(): void {
       options: {
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'V' },
+        config: { type: 'string' },
       },
     });
   } catch {
@@ -52,8 +54,14 @@ function main(): void {
     process.exit(ExitCode.SUCCESS);
   }
 
+  const [command, subcommand] = args.positionals;
+  if (command === 'config' && subcommand === 'show') {
+    await configShow(args.values.config as string | undefined);
+    return;
+  }
+
   process.stdout.write(`${HELP_TEXT}\n`);
   process.exit(ExitCode.SUCCESS);
 }
 
-main();
+await main();

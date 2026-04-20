@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.2.1] - 2026-04-19
+
+### Added
+- Layered config loader (`src/config/loader.ts`) that discovers and reads config from a priority stack: `--config` CLI flag > `$SEITON_CONFIG` env var > `$XDG_CONFIG_HOME/seiton/config.json` > `$HOME/.config/seiton/config.json` > `$HOME/.seitonrc.json` > built-in defaults (M3)
+
+### Added
+- Layered config loader with discovery stack: `--config` flag, `$SEITON_CONFIG`, XDG, `$HOME/.config`, `.seitonrc.json` (M3)
+- Zod-based config schema validation with strict mode rejecting unknown keys (M3)
+- Environment variable overrides of the form `SEITON_<SECTION>_<KEY>` (M3)
+- `seiton config show` command printing the effective merged config as JSON (M3)
+- Path-sensitive values (`bw_binary`, `pending_queue`) redacted in `config show` output (M3)
+- `config/default.yaml` and `config/schema.yaml` documenting defaults and schema constraints (M3)
+- `zod` runtime dependency for config schema validation (M3)
+
 ## [0.2.0] - 2026-04-19
 
 ### Added
