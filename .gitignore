@@ -1,5 +1,31 @@
-.claude
-.tekhton
-docs
-*.md
-!README.md
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Coverage
+coverage/
+
+# Editor and OS
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+!.vscode/settings.json
+.idea/
+
+# Sensitive files
+.env
+*.pem
+*.key
+id_rsa
+
+# Tekhton pipeline
+.tekhton/
+.claude/
+docs/superpowers/
+
+# Test artifacts
+*.tgz
