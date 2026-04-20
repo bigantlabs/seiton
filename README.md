@@ -1,6 +1,6 @@
 # seiton
 
-An interactive command-line auditor for [Bitwarden](https://bitwarden.com/) vaults. seiton detects duplicates, weak and reused passwords, missing fields, and disorganized folders, then walks you through each finding so you can approve or reject changes one at a time. Plaintext never leaves the local machine: there is no network I/O, no telemetry, no update checks, and every mutation flows through the `bw` CLI with per-item confirmation.
+An interactive command-line auditor for [Bitwarden](https://bitwarden.com/) vaults. seiton detects duplicates, weak and reused passwords, missing fields, and disorganized folders, then walks you through each finding so you can approve or reject changes one at a time. Plaintext never leaves the local machine: seiton itself makes no direct network calls, telemetry, or update checks — any network access is performed by the `bw` CLI it invokes — and every mutation flows through `bw` with per-item confirmation.
 
 The name derives from Japanese 整頓 ("set in order"), one of the five principles of the 5S workplace-organization methodology.
 
