@@ -92,6 +92,16 @@ export function scorePassword(
 
   if (!hasCommonSubstring(password, config.extraCommonPasswords)) score++;
 
+  const hasRequiredFailure =
+    password.length < config.minLength ||
+    classes < config.minCharacterClasses ||
+    (config.requireDigit && !/[0-9]/.test(password)) ||
+    (config.requireSymbol && !/[^a-zA-Z0-9]/.test(password));
+
+  if (hasRequiredFailure) {
+    score = Math.min(score, 2);
+  }
+
   return Math.min(score, 4);
 }
 
