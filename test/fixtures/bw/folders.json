@@ -1,0 +1,17 @@
+[
+  {
+    "object": "folder",
+    "id": "fold-1111",
+    "name": "Email"
+  },
+  {
+    "object": "folder",
+    "id": "fold-2222",
+    "name": "Development"
+  },
+  {
+    "object": "folder",
+    "id": "fold-3333",
+    "name": "Banking & Finance"
+  }
+]

@@ -32,15 +32,19 @@ async function main(): Promise<void> {
   try {
     args = parseArgs({
       allowPositionals: true,
-      strict: false,
+      strict: true,
       options: {
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'V' },
         config: { type: 'string' },
+        'no-color': { type: 'boolean' },
+        verbose: { type: 'boolean', short: 'v', multiple: true },
+        quiet: { type: 'boolean', short: 'q' },
       },
     });
-  } catch {
-    process.stderr.write(`seiton: invalid arguments. Run 'seiton --help' for usage.\n`);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`seiton: ${detail}\nRun 'seiton --help' for usage.\n`);
     process.exit(ExitCode.USAGE);
   }
 

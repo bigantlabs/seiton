@@ -1,0 +1,178 @@
+[
+  {
+    "object": "item",
+    "id": "aaaa-1111-bbbb-2222",
+    "organizationId": null,
+    "folderId": null,
+    "type": 1,
+    "reprompt": 0,
+    "name": "GitHub",
+    "notes": "My GitHub account for work",
+    "favorite": false,
+    "login": {
+      "uris": [
+        { "match": null, "uri": "https://github.com/login" }
+      ],
+      "username": "user@example.com",
+      "password": "SuperSecret123!",
+      "totp": null,
+      "passwordRevisionDate": null
+    },
+    "revisionDate": "2024-03-15T10:30:00.000Z",
+    "creationDate": "2023-01-01T00:00:00.000Z",
+    "deletedDate": null
+  },
+  {
+    "object": "item",
+    "id": "cccc-3333-dddd-4444",
+    "organizationId": null,
+    "folderId": "fold-1111",
+    "type": 1,
+    "reprompt": 0,
+    "name": "Gmail",
+    "notes": null,
+    "favorite": true,
+    "login": {
+      "uris": [
+        { "match": null, "uri": "https://mail.google.com" }
+      ],
+      "username": "user@gmail.com",
+      "password": "AnotherP@ss99",
+      "totp": "otpauth://totp/Gmail?secret=JBSWY3DPEHPK3PXP",
+      "passwordRevisionDate": "2024-01-10T00:00:00.000Z"
+    },
+    "revisionDate": "2024-06-01T12:00:00.000Z",
+    "creationDate": "2022-06-15T00:00:00.000Z",
+    "deletedDate": null
+  },
+  {
+    "object": "item",
+    "id": "eeee-5555-ffff-6666",
+    "organizationId": null,
+    "folderId": null,
+    "type": 1,
+    "reprompt": 0,
+    "name": "No URL Item",
+    "notes": null,
+    "favorite": false,
+    "login": {
+      "uris": null,
+      "username": "admin",
+      "password": "password",
+      "totp": null,
+      "passwordRevisionDate": null
+    },
+    "revisionDate": "2024-01-01T00:00:00.000Z",
+    "creationDate": "2024-01-01T00:00:00.000Z",
+    "deletedDate": null
+  },
+  {
+    "object": "item",
+    "id": "gggg-7777-hhhh-8888",
+    "organizationId": null,
+    "folderId": null,
+    "type": 1,
+    "reprompt": 0,
+    "name": "No Username Item",
+    "notes": null,
+    "favorite": false,
+    "login": {
+      "uris": [
+        { "match": null, "uri": "https://example.com" }
+      ],
+      "username": null,
+      "password": "StrongP@ss#2024",
+      "totp": null,
+      "passwordRevisionDate": null
+    },
+    "revisionDate": "2024-02-15T00:00:00.000Z",
+    "creationDate": "2024-02-15T00:00:00.000Z",
+    "deletedDate": null
+  },
+  {
+    "object": "item",
+    "id": "iiii-9999-jjjj-0000",
+    "organizationId": null,
+    "folderId": null,
+    "type": 1,
+    "reprompt": 0,
+    "name": "No Password Item",
+    "notes": "Saved but never set a password",
+    "favorite": false,
+    "login": {
+      "uris": [
+        { "match": null, "uri": "https://nopass.example.org" }
+      ],
+      "username": "somebody",
+      "password": null,
+      "totp": null,
+      "passwordRevisionDate": null
+    },
+    "revisionDate": "2024-04-01T00:00:00.000Z",
+    "creationDate": "2024-04-01T00:00:00.000Z",
+    "deletedDate": null
+  },
+  {
+    "object": "item",
+    "id": "kkkk-1234-llll-5678",
+    "organizationId": null,
+    "folderId": null,
+    "type": 2,
+    "reprompt": 0,
+    "name": "Secure Note",
+    "notes": "Top secret information here",
+    "favorite": false,
+    "login": null,
+    "revisionDate": "2024-05-01T00:00:00.000Z",
+    "creationDate": "2024-05-01T00:00:00.000Z",
+    "deletedDate": null
+  },
+  {
+    "object": "item",
+    "id": "mmmm-9012-nnnn-3456",
+    "organizationId": null,
+    "folderId": null,
+    "type": 1,
+    "reprompt": 0,
+    "name": "Item With Null Fields",
+    "notes": null,
+    "favorite": false,
+    "login": {
+      "uris": [],
+      "username": null,
+      "password": null,
+      "totp": null,
+      "passwordRevisionDate": null
+    },
+    "revisionDate": "2024-07-01T00:00:00.000Z",
+    "creationDate": "2024-07-01T00:00:00.000Z",
+    "deletedDate": null
+  },
+  {
+    "object": "item",
+    "id": "oooo-7890-pppp-1234",
+    "organizationId": null,
+    "folderId": null,
+    "type": 1,
+    "reprompt": 0,
+    "name": "Extra Fields Item",
+    "notes": null,
+    "favorite": false,
+    "login": {
+      "uris": [
+        { "match": null, "uri": "https://extra.example.com" }
+      ],
+      "username": "extrauser",
+      "password": "ExtraP@ss!1",
+      "totp": null,
+      "passwordRevisionDate": null
+    },
+    "fields": [
+      { "name": "security_question", "value": "Blue", "type": 0 }
+    ],
+    "revisionDate": "2024-08-01T00:00:00.000Z",
+    "creationDate": "2024-08-01T00:00:00.000Z",
+    "deletedDate": null,
+    "customFieldFromBw": "extra-data-preserved"
+  }
+]
