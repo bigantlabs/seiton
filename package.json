@@ -1,6 +1,6 @@
 {
   "name": "seiton",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Interactive command-line auditor for Bitwarden vaults",
   "type": "module",
   "license": "MIT",

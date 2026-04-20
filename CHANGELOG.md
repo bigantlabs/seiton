@@ -15,9 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Layered config loader (`src/config/loader.ts`) that discovers and reads config from a priority stack: `--config` CLI flag > `$SEITON_CONFIG` env var > `$XDG_CONFIG_HOME/seiton/config.json` > `$HOME/.config/seiton/config.json` > `$HOME/.seitonrc.json` > built-in defaults (M3)
-
-### Added
-- Layered config loader with discovery stack: `--config` flag, `$SEITON_CONFIG`, XDG, `$HOME/.config`, `.seitonrc.json` (M3)
 - Zod-based config schema validation with strict mode rejecting unknown keys (M3)
 - Environment variable overrides of the form `SEITON_<SECTION>_<KEY>` (M3)
 - `seiton config show` command printing the effective merged config as JSON (M3)
@@ -28,14 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2026-04-19
 
 ### Added
-- Project bootstrap: `package.json` with ESM, `bin` field, `engines`, and npm scripts (M2)
+- Project bootstrap with `package.json`: ESM (`"type": "module"`), `bin` field pointing to `dist/bw-organize.js`, `engines.node >= 22`, npm scripts for build/lint/test (M2)
 - TypeScript build system: `tsconfig.json` with strict mode, NodeNext modules, ES2022 target (M2)
 - CLI entry point `src/bw-organize.ts` with `--version` and `--help` flags (M2)
 - `ExitCode` enum in `src/exit-codes.ts` with BSD sysexits-compatible codes (M2)
 - Version constant in `src/version.ts` with unit test verifying semver validity (M2)
 - `.nvmrc` pinning Node 22, `.editorconfig` for consistent formatting (M2)
 
-- Project bootstrap with `package.json`: ESM (`"type": "module"`), `bin` field pointing to `dist/bw-organize.js`, `engines.node >= 22`, npm scripts for build/lint/test (M2)
 ## [0.1.1] - 2026-04-19
 
 ### Added
