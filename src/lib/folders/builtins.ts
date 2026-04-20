@@ -8,9 +8,9 @@ export const BUILTIN_RULES: readonly BuiltinRule[] = [
     folder: 'Banking & Finance',
     keywords: [
       'bank', 'chase', 'wells fargo', 'citibank', 'capital one',
-      'paypal', 'venmo', 'stripe', 'square', 'mint', 'fidelity',
+      'paypal', 'venmo', 'stripe', 'square', 'fidelity',
       'vanguard', 'schwab', 'robinhood', 'coinbase', 'binance',
-      'credit union', 'mortgage', 'loan', 'invest', 'trading',
+      'credit union', 'mortgage', 'invest', 'trading',
       'finance', 'banking', 'visa', 'mastercard', 'amex',
     ],
   },
@@ -36,14 +36,14 @@ export const BUILTIN_RULES: readonly BuiltinRule[] = [
     keywords: [
       'amazon', 'ebay', 'etsy', 'walmart', 'target', 'bestbuy',
       'best buy', 'costco', 'ikea', 'wayfair', 'shopify', 'aliexpress',
-      'newegg', 'wish', 'shop', 'store', 'marketplace',
+      'newegg', 'store', 'marketplace',
     ],
   },
   {
     folder: 'Development',
     keywords: [
       'github', 'gitlab', 'bitbucket', 'stackoverflow', 'stack overflow',
-      'npm', 'docker', 'aws', 'azure', 'gcloud', 'heroku', 'vercel',
+      'npm', 'docker', 'azure', 'gcloud', 'heroku', 'vercel',
       'netlify', 'digitalocean', 'cloudflare', 'jira', 'confluence',
       'sentry', 'datadog', 'pagerduty', 'circleci', 'travisci',
       'jenkins', 'terraform', 'ansible',
@@ -61,16 +61,16 @@ export const BUILTIN_RULES: readonly BuiltinRule[] = [
   {
     folder: 'Utilities',
     keywords: [
-      'electric', 'gas', 'water', 'internet', 'phone', 'mobile',
-      'comcast', 'xfinity', 'verizon', 'at&t', 'att', 't-mobile',
-      'sprint', 'spectrum', 'cox', 'utility', 'power',
+      'electric', 'water', 'internet', 'phone', 'mobile',
+      'comcast', 'xfinity', 'verizon', 'at&t', 't-mobile',
+      'sprint', 'spectrum', 'cox', 'utility',
     ],
   },
   {
     folder: 'Government & ID',
     keywords: [
       'irs', 'ssa', 'dmv', 'passport', 'immigration',
-      'medicare', 'medicaid', 'tax', 'government', 'gov',
+      'medicare', 'medicaid', 'government',
       '.gov', 'social security', 'voter', 'license',
     ],
   },
@@ -97,6 +97,27 @@ export type CustomRule = {
   readonly keywords: readonly string[];
 };
 
+function isWordChar(ch: string): boolean {
+  return /[a-z0-9]/.test(ch);
+}
+
+function containsAsWord(text: string, keyword: string): boolean {
+  if (!keyword) return false;
+  let start = 0;
+  while (start <= text.length) {
+    const idx = text.indexOf(keyword, start);
+    if (idx < 0) return false;
+    const before = idx === 0 ? '' : text[idx - 1]!;
+    const afterIdx = idx + keyword.length;
+    const after = afterIdx >= text.length ? '' : text[afterIdx]!;
+    const beforeOk = before === '' || !isWordChar(before);
+    const afterOk = after === '' || !isWordChar(after);
+    if (beforeOk && afterOk) return true;
+    start = idx + 1;
+  }
+  return false;
+}
+
 export function classifyItem(
   name: string,
   uris: readonly string[],
@@ -112,7 +133,7 @@ export function classifyItem(
     for (const keyword of rule.keywords) {
       const lower = keyword.toLowerCase();
       for (const text of searchable) {
-        if (text.includes(lower)) return rule.folder;
+        if (containsAsWord(text, lower)) return rule.folder;
       }
     }
   }
@@ -124,7 +145,7 @@ export function classifyItem(
     for (const keyword of rule.keywords) {
       const lower = keyword.toLowerCase();
       for (const text of searchable) {
-        if (text.includes(lower)) return rule.folder;
+        if (containsAsWord(text, lower)) return rule.folder;
       }
     }
   }
