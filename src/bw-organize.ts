@@ -4,6 +4,7 @@ import { parseArgs } from 'node:util';
 import { VERSION } from './version.js';
 import { ExitCode } from './exit-codes.js';
 import { configShow } from './cli/commands/config.js';
+import { runDoctor } from './cli/commands/doctor.js';
 
 const HELP_TEXT = `seiton v${VERSION} — interactive Bitwarden vault auditor
 
@@ -28,6 +29,16 @@ Global Flags:
 Run 'seiton <command> --help' for command-specific usage.`;
 
 async function main(): Promise<void> {
+  const rawArgs = process.argv.slice(2);
+  const commandIndex = rawArgs.findIndex(a => !a.startsWith('-'));
+  const command = commandIndex >= 0 ? rawArgs[commandIndex] : undefined;
+
+  if (command === 'doctor') {
+    const doctorArgs = rawArgs.slice(commandIndex + 1);
+    await runDoctor(doctorArgs);
+    return;
+  }
+
   let args: ReturnType<typeof parseArgs>;
   try {
     args = parseArgs({
@@ -58,8 +69,8 @@ async function main(): Promise<void> {
     process.exit(ExitCode.SUCCESS);
   }
 
-  const [command, subcommand] = args.positionals;
-  if (command === 'config' && subcommand === 'show') {
+  const [positionalCommand, subcommand] = args.positionals;
+  if (positionalCommand === 'config' && subcommand === 'show') {
     await configShow(args.values.config as string | undefined);
     return;
   }

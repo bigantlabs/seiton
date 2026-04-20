@@ -114,9 +114,17 @@ describe('ProcessAdapter', () => {
       );
     });
 
-    it('returns 0 for empty string (Number("") === 0)', () => {
+    it('throws ENV_INVALID for empty string', () => {
       const proc = createProcessAdapter({ NUM: '' });
-      assert.equal(proc.getEnvAsInt('NUM'), 0);
+      assert.throws(
+        () => proc.getEnvAsInt('NUM'),
+        (err: unknown) => {
+          assert.ok(err instanceof ProcessError);
+          assert.equal(err.code, ProcessErrorCode.ENV_INVALID);
+          assert.equal(err.variable, 'NUM');
+          return true;
+        },
+      );
     });
   });
 

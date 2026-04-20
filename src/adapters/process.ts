@@ -49,6 +49,13 @@ export function createProcessAdapter(
     getEnvAsInt(name: string): number | undefined {
       const raw = env[name];
       if (raw === undefined) return undefined;
+      if (raw === '') {
+        throw new ProcessError(
+          ProcessErrorCode.ENV_INVALID,
+          name,
+          `Environment variable ${name}="" is not a valid integer`,
+        );
+      }
       const n = Number(raw);
       if (!Number.isFinite(n) || !Number.isInteger(n)) {
         throw new ProcessError(
