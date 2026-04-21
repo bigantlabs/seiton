@@ -55,8 +55,7 @@ describe('--verbose flag propagation', () => {
   it('--verbose on config show emits log lines to stderr', async () => {
     const { stderr, exitCode } = await runVerboseCli(['--verbose', 'config', 'show']);
     assert.equal(exitCode, 0);
-    assert.ok(stderr.includes('seiton started'), 'stderr should contain entry log from main');
-    assert.ok(stderr.includes('config show'), 'stderr should contain config show log');
+    assert.ok(stderr.includes('config show command started'), 'stderr should contain config show log');
   });
 
   it('-v short flag produces log output on stderr', async () => {
@@ -76,7 +75,7 @@ describe('--verbose flag propagation', () => {
     const { stderr, exitCode } = await runVerboseCli(['config', 'show']);
     assert.equal(exitCode, 0);
     assert.ok(!stderr.includes('INFO'), 'stderr should not contain log lines without --verbose');
-    assert.ok(!stderr.includes('seiton started'), 'stderr should not contain entry log without --verbose');
+    assert.ok(!stderr.includes('config show command started'), 'stderr should not contain entry log without --verbose');
   });
 
   it('--verbose log output does not contaminate stdout JSON', async () => {

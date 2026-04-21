@@ -1,18 +1,16 @@
 #!/usr/bin/env node
 
-import { parseArgs } from 'node:util';
 import { VERSION } from './version.js';
 import { ExitCode } from './exit-codes.js';
-import { configShow } from './cli/commands/config.js';
 import { runDoctor } from './cli/commands/doctor.js';
+import { runAuditCli } from './cli/commands/audit.js';
+import { runResumeCli } from './cli/commands/resume.js';
+import { runDiscardCli } from './cli/commands/discard.js';
+import { runReportCli } from './cli/commands/report.js';
+import { runConfigCli } from './cli/commands/config.js';
 import { createLogger, createNoopLogger } from './adapters/logging.js';
 import { createSystemClock } from './adapters/clock.js';
-import { createProcessAdapter } from './adapters/process.js';
-import { createFsAdapter } from './adapters/fs.js';
-import { createBwAdapter } from './lib/bw.js';
-import { loadConfig } from './config/loader.js';
 import { installSignalHandlers } from './core/signals.js';
-import { runAudit } from './commands/audit.js';
 
 const HELP_TEXT = `seiton v${VERSION} — interactive Bitwarden vault auditor
 
@@ -39,6 +37,7 @@ Global Flags:
 
 Run 'seiton <command> --help' for command-specific usage.`;
 
+const COMMANDS = new Set(['audit', 'resume', 'discard', 'report', 'doctor', 'config']);
 const VALUE_TAKING_FLAGS = new Set(['--config', '--skip', '--limit']);
 
 function findFirstPositional(rawArgs: string[]): { index: number; value: string } | undefined {
@@ -54,14 +53,39 @@ function findFirstPositional(rawArgs: string[]): { index: number; value: string 
   return undefined;
 }
 
+function extractCommandArgs(rawArgs: string[], commandIndex: number): string[] {
+  return [...rawArgs.slice(0, commandIndex), ...rawArgs.slice(commandIndex + 1)];
+}
+
 async function main(): Promise<void> {
   const rawArgs = process.argv.slice(2);
+
+  if (rawArgs.includes('--version') || rawArgs.includes('-V')) {
+    process.stdout.write(`${VERSION}\n`);
+    process.exit(ExitCode.SUCCESS);
+  }
+
   const firstPos = findFirstPositional(rawArgs);
 
-  if (firstPos?.value === 'doctor') {
-    const doctorArgs = [...rawArgs.slice(0, firstPos.index), ...rawArgs.slice(firstPos.index + 1)];
-    const verboseCount = doctorArgs.filter((a) => a === '--verbose' || a === '-v').length;
-    const quiet = doctorArgs.includes('--quiet') || doctorArgs.includes('-q');
+  if (!firstPos || !COMMANDS.has(firstPos.value)) {
+    if (rawArgs.includes('--help') || rawArgs.includes('-h')) {
+      process.stdout.write(`${HELP_TEXT}\n`);
+      process.exit(ExitCode.SUCCESS);
+    }
+  }
+
+  const command = firstPos?.value ?? 'audit';
+  const commandArgs = firstPos ? extractCommandArgs(rawArgs, firstPos.index) : rawArgs;
+
+  if (command !== 'doctor' && command !== 'audit' && command !== 'config'
+    && command !== 'resume' && command !== 'report' && command !== 'discard') {
+    process.stderr.write(`seiton: unknown command "${command}"\nRun 'seiton --help' for usage.\n`);
+    process.exit(ExitCode.USAGE);
+  }
+
+  if (command === 'doctor') {
+    const verboseCount = commandArgs.filter((a) => a === '--verbose' || a === '-v').length;
+    const quiet = commandArgs.includes('--quiet') || commandArgs.includes('-q');
     const earlyLog = quiet || verboseCount === 0
       ? createNoopLogger()
       : createLogger({
@@ -70,106 +94,17 @@ async function main(): Promise<void> {
           clock: createSystemClock(),
         });
     installSignalHandlers(earlyLog);
-    await runDoctor(doctorArgs);
+    await runDoctor(commandArgs);
     return;
   }
 
-  let args: ReturnType<typeof parseArgs>;
-  try {
-    args = parseArgs({
-      allowPositionals: true,
-      strict: true,
-      options: {
-        help: { type: 'boolean', short: 'h' },
-        version: { type: 'boolean', short: 'V' },
-        config: { type: 'string' },
-        'dry-run': { type: 'boolean' },
-        'no-color': { type: 'boolean' },
-        verbose: { type: 'boolean', short: 'v', multiple: true },
-        quiet: { type: 'boolean', short: 'q' },
-        skip: { type: 'string', multiple: true },
-        limit: { type: 'string' },
-      },
-    });
-  } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`seiton: invalid arguments: ${detail}\nRun 'seiton --help' for usage.\n`);
-    process.exit(ExitCode.USAGE);
+  switch (command) {
+    case 'audit': return runAuditCli(commandArgs);
+    case 'resume': return runResumeCli(commandArgs);
+    case 'discard': return runDiscardCli(commandArgs);
+    case 'report': return runReportCli(commandArgs);
+    case 'config': return runConfigCli(commandArgs);
   }
-
-  if (args.values.version) {
-    process.stdout.write(`${VERSION}\n`);
-    process.exit(ExitCode.SUCCESS);
-  }
-
-  if (args.values.help) {
-    process.stdout.write(`${HELP_TEXT}\n`);
-    process.exit(ExitCode.SUCCESS);
-  }
-
-  const verboseCount = Array.isArray(args.values.verbose)
-    ? args.values.verbose.length
-    : args.values.verbose ? 1 : 0;
-  const quiet = Boolean(args.values.quiet);
-
-  const clock = createSystemClock();
-  const log = quiet || verboseCount === 0
-    ? createNoopLogger()
-    : createLogger({ format: 'text', level: verboseCount >= 2 ? 'debug' : 'info', clock });
-
-  installSignalHandlers(log);
-
-  const dryRun = Boolean(args.values['dry-run']);
-  const [positionalCommand, subcommand] = args.positionals;
-
-  log.info('seiton started', { command: positionalCommand, version: VERSION, dryRun });
-
-  if (positionalCommand === 'config' && subcommand === 'show') {
-    log.debug('dispatching config show');
-    await configShow(args.values.config as string | undefined, log, dryRun);
-    return;
-  }
-
-  const command = positionalCommand ?? 'audit';
-  if (command === 'audit') {
-    const config = await loadConfig({
-      cliConfigPath: args.values.config as string | undefined,
-      envConfigPath: process.env['SEITON_CONFIG'],
-      logger: log,
-    });
-
-    const proc = createProcessAdapter(process.env, (code) => process.exit(code), log);
-    const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '/';
-    const fsAdapter = createFsAdapter(homeDir, log);
-    const bwAdapter = createBwAdapter(config.paths.bw_binary, log);
-    const cliSkip = (Array.isArray(args.values.skip) ? args.values.skip : []).filter((v): v is string => typeof v === 'string');
-    const cliLimitRaw = args.values.limit as string | undefined;
-    let cliLimit: number | null = null;
-    if (cliLimitRaw) {
-      const n = Number(cliLimitRaw);
-      if (!Number.isFinite(n) || n < 1 || n > 100_000 || !Number.isInteger(n)) {
-        process.stderr.write(`seiton: audit: --limit must be an integer between 1 and 100000\n`);
-        process.exit(ExitCode.USAGE);
-      }
-      cliLimit = n;
-    }
-
-    await runAudit({
-      config,
-      bw: bwAdapter,
-      fs: fsAdapter,
-      clock,
-      proc,
-      logger: log,
-      dryRun,
-      cliSkipCategories: cliSkip,
-      cliLimit,
-    });
-    return;
-  }
-
-  process.stdout.write(`${HELP_TEXT}\n`);
-  process.exit(ExitCode.SUCCESS);
 }
 
 await main();

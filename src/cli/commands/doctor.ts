@@ -1,11 +1,11 @@
 import { parseArgs } from 'node:util';
-import { loadConfigWithPath, ConfigError } from '../../config/loader.js';
 import { ExitCode } from '../../exit-codes.js';
-import { getBwVersion } from '../../lib/bw.js';
 import { VERSION } from '../../version.js';
-import { createLogger, createNoopLogger, type Logger } from '../../adapters/logging.js';
+import { createLogger, createNoopLogger } from '../../adapters/logging.js';
 import { createSystemClock } from '../../adapters/clock.js';
 import { createPromptAdapter } from '../../ui/prompts.js';
+import { runDoctorChecks } from '../../commands/doctor.js';
+import type { DoctorOptions } from '../../commands/doctor.js';
 
 const DOCTOR_HELP = `seiton doctor — preflight checks for bw, session, and config
 
@@ -18,7 +18,7 @@ Checks:
   • Config file is valid (if present)
 
 Flags:
-  --debug         Show stack traces on unexpected errors
+  --debug         Show stack traces on unexpected error
   --config <path> Override the config file location
   --no-color      Disable ANSI color output
   --verbose, -v   Increase log detail
@@ -30,41 +30,12 @@ Exit Codes:
   1   One or more checks failed
   2   Internal error`;
 
-export interface DoctorOptions {
-  cliConfigPath?: string;
-  envConfigPath?: string;
-  debug?: boolean;
-  logger?: Logger;
-  promptStyle?: 'clack' | 'plain';
-}
-
-interface CheckResult {
-  name: string;
-  status: 'ok' | 'warn' | 'fail';
-  detail: string;
-}
-
-export async function doctor(opts: DoctorOptions = {}): Promise<void> {
-  const log = opts.logger ?? createNoopLogger();
+export async function doctor(opts: DoctorOptions & { promptStyle?: 'clack' | 'plain' } = {}): Promise<void> {
   const prompt = createPromptAdapter(opts.promptStyle ?? 'clack');
-
-  log.info('doctor command started', { version: VERSION });
   prompt.intro(`seiton doctor v${VERSION}`);
 
-  const results: CheckResult[] = [];
-
-  results.push(checkNodeVersion());
-  results.push(await checkBwBinary(log));
-  results.push(checkBwSession());
-  results.push(await checkConfig(opts));
-  results.push(checkVersion());
-
+  const results = await runDoctorChecks(opts);
   const hasFail = results.some(r => r.status === 'fail');
-
-  log.info('doctor checks complete', {
-    passed: results.filter(r => r.status === 'ok').length,
-    failed: results.filter(r => r.status === 'fail').length,
-  });
 
   for (const result of results) {
     if (result.status === 'ok') {
@@ -78,73 +49,13 @@ export async function doctor(opts: DoctorOptions = {}): Promise<void> {
 
   if (hasFail) {
     prompt.outro('Some checks failed.');
-    log.debug('doctor exiting with failure');
     process.exit(ExitCode.GENERAL_ERROR);
   }
   prompt.outro('All checks passed.');
-  log.debug('doctor exiting with success');
   process.exit(ExitCode.SUCCESS);
 }
 
-function checkNodeVersion(): CheckResult {
-  const major = parseInt(process.versions.node.split('.')[0]!, 10);
-  if (major >= 22) {
-    return { name: 'node', status: 'ok', detail: `v${process.versions.node}` };
-  }
-  return {
-    name: 'node',
-    status: 'fail',
-    detail: `v${process.versions.node} (requires >=22)`,
-  };
-}
-
-async function checkBwBinary(logger?: Logger): Promise<CheckResult> {
-  try {
-    const version = await getBwVersion(logger);
-    return { name: 'bw', status: 'ok', detail: `v${version}` };
-  } catch (err: unknown) {
-    const code = (err as { code?: string } | null)?.code;
-    if (code === 'ENOENT') {
-      return { name: 'bw', status: 'fail', detail: 'not found on PATH' };
-    }
-    const msg = err instanceof Error ? err.message : String(err);
-    return { name: 'bw', status: 'fail', detail: `error: ${msg}` };
-  }
-}
-
-function checkBwSession(): CheckResult {
-  const session = process.env['BW_SESSION'];
-  if (session && session.length > 0) {
-    return { name: 'session', status: 'ok', detail: 'BW_SESSION is set' };
-  }
-  return {
-    name: 'session',
-    status: 'fail',
-    detail: 'BW_SESSION is not set. Run: export BW_SESSION=$(bw unlock --raw)',
-  };
-}
-
-async function checkConfig(opts: DoctorOptions): Promise<CheckResult> {
-  try {
-    const { path } = await loadConfigWithPath({
-      cliConfigPath: opts.cliConfigPath,
-      envConfigPath: opts.envConfigPath,
-    });
-    return { name: 'config', status: 'ok', detail: `valid (${path ?? 'defaults'})` };
-  } catch (err: unknown) {
-    if (err instanceof ConfigError) {
-      return { name: 'config', status: 'fail', detail: err.message };
-    }
-    const msg = err instanceof Error ? err.message : String(err);
-    return { name: 'config', status: 'fail', detail: msg };
-  }
-}
-
-function checkVersion(): CheckResult {
-  return { name: 'version', status: 'ok', detail: `seiton v${VERSION}` };
-}
-
-export function parseDoctorArgs(argv: string[]): { help: boolean; opts: DoctorOptions } {
+export function parseDoctorArgs(argv: string[]): { help: boolean; opts: DoctorOptions & { promptStyle?: 'clack' | 'plain' } } {
   let parsed: ReturnType<typeof parseArgs>;
   try {
     parsed = parseArgs({

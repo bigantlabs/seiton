@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.3.4] - 2026-04-21
+
+### Added
+- Milestone 12: Implemented all remaining CLI commands. Every command listed in the CLAUDE.md repository layout under `src/commands/` now has a corresponding implementation file. All subcommands are routed through dedicated CLI wrappers in `src/cli/commands/` and dispatch from the main router in `src/bw-organize.ts`. (M12)
+
+### Added
+- **`seiton resume`** command: loads pending operations from a prior interrupted audit and applies them after interactive confirmation. (M12)
+- **`seiton discard`** command: deletes the saved pending-ops queue. (M12)
+- **`seiton report`** command: read-only vault analysis supporting `--json` output with redacted secrets. (M12)
+- **`seiton config get <key>`** subcommand: prints a specific configuration value. (M12)
+- **`seiton config set <key> <value>`** subcommand: sets a configuration value (supports `--unset`). (M12)
+- **`seiton config path`** subcommand: prints the active config file path. (M12)
+- **`seiton config edit`** subcommand: opens the config file in `$VISUAL`/`$EDITOR`. (M12)
+- **`seiton config reset`** subcommand: resets config to defaults (supports `--keep-custom-rules`, `--yes`). (M12)
+- CLI wrapper for `seiton audit` extracted from main entry point into `src/cli/commands/audit.ts`. (M12)
+- All subcommands support `--help` for command-specific usage information. (M12)
+
+### Changed
+- Main CLI router (`src/bw-organize.ts`) refactored to dispatch all subcommands to dedicated CLI wrappers. (M12)
+- `src/cli/commands/config.ts` expanded to route all config sub-subcommands (show, get, set, path, edit, reset). (M12)
 
 ## [0.3.3] - 2026-04-21
 
