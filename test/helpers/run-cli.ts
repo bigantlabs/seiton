@@ -36,7 +36,10 @@ export async function runCli(
     );
     return { stdout, stderr, exitCode: 0 };
   } catch (err: unknown) {
-    const e = err as { stdout: string; stderr: string; code: number };
-    return { stdout: e.stdout ?? '', stderr: e.stderr ?? '', exitCode: e.code };
+    const e = err as Record<string, unknown>;
+    const stdout = typeof e.stdout === 'string' ? e.stdout : '';
+    const stderr = typeof e.stderr === 'string' ? e.stderr : '';
+    const code = typeof e.code === 'number' ? e.code : 1;
+    return { stdout, stderr, exitCode: code };
   }
 }
