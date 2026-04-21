@@ -234,7 +234,7 @@ async function presentReuse(
   prompt: PromptAdapter,
   maskChar: string,
 ): Promise<FindingAction> {
-  const masked = maskPassword('password', maskChar);
+  const masked = maskPassword(finding.items[0]?.login?.password ?? 'password', maskChar);
   const names = finding.items.map(i => itemLabel(i)).join('\n    ');
   prompt.logWarning(
     `Reused password (${masked}) across ${finding.items.length} items:\n    ${names}`,
