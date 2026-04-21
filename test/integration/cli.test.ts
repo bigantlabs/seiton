@@ -71,19 +71,10 @@ describe('CLI entry point', () => {
   });
 
   describe('default (no arguments)', () => {
-    it('prints help text to stdout and exits 0', async () => {
-      const { stdout, exitCode } = await runCli([]);
-      assert.ok(stdout.includes('Usage:'));
-      assert.ok(stdout.includes('Commands:'));
-      assert.equal(exitCode, 0);
-    });
-
-    it('produces identical output to --help', async () => {
-      const [defaultResult, helpResult] = await Promise.all([
-        runCli([]),
-        runCli(['--help']),
-      ]);
-      assert.equal(defaultResult.stdout, helpResult.stdout);
+    it('dispatches to audit which requires a TTY (exits 64 in subprocess)', async () => {
+      const { stderr, exitCode } = await runCli([]);
+      assert.equal(exitCode, 64);
+      assert.ok(stderr.includes('interactive terminal') || stderr.includes('report'));
     });
   });
 

@@ -47,9 +47,9 @@ describe('--dry-run flag', () => {
     assert.equal(exitCode, 0);
   });
 
-  it('is accepted without other flags', async () => {
-    const { exitCode, stdout } = await runCli(['--dry-run']);
-    assert.equal(exitCode, 0);
-    assert.ok(stdout.includes('Usage:'));
+  it('dispatches to audit with --dry-run (exits 64 without TTY)', async () => {
+    const { exitCode, stderr } = await runCli(['--dry-run']);
+    assert.equal(exitCode, 64);
+    assert.ok(stderr.includes('interactive terminal') || stderr.includes('report'));
   });
 });

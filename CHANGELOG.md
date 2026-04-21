@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.3.1] - 2026-04-20
+
+### Added
+- **Audit command orchestrator** (`src/commands/audit.ts`): Full pipeline — TTY enforcement, BW_SESSION check, preflight, fetch, validate, analyze, review, apply, sync. Handles `--dry-run`, `--skip`, `--limit`, and SIGINT gracefully. (M10)
+
+### Added
+- `seiton audit` command — the default subcommand that orchestrates the full pipeline: preflight checks, vault fetch, schema validation, analysis, interactive review, apply mutations, and sync.
+- CLI flags `--skip <category>` (repeatable) and `--limit <n>` for the audit command.
+- `--dry-run` flag skips the apply phase and exits 0 after presenting findings.
+- TTY enforcement: `seiton audit` exits 64 when stdin/stdout is not a TTY, suggesting `seiton report` instead.
+- SIGINT handling persists in-progress `PendingOp[]` to `pending.json` (mode 0600) and exits 130, honoring `audit.save_pending_on_sigint` config.
+- Partial apply failure persists remaining + failed ops to `pending.json` and exits 1.
+- `bw sync` runs after successful apply; sync failure is warn-only.
+- `BwAdapter` interface in `src/lib/bw.ts` for structured vault operations (list items, list folders, edit, delete, create folder, sync).
+
+### Changed
+- Running `seiton` with no arguments now dispatches to the `audit` command instead of showing help text.
 
 ## [0.3.0] - 2026-04-20
 

@@ -7,7 +7,12 @@ import { configShow } from './cli/commands/config.js';
 import { runDoctor } from './cli/commands/doctor.js';
 import { createLogger, createNoopLogger } from './adapters/logging.js';
 import { createSystemClock } from './adapters/clock.js';
+import { createProcessAdapter } from './adapters/process.js';
+import { createFsAdapter } from './adapters/fs.js';
+import { createBwAdapter } from './lib/bw.js';
+import { loadConfig } from './config/loader.js';
 import { installSignalHandlers } from './core/signals.js';
+import { runAudit } from './commands/audit.js';
 
 const HELP_TEXT = `seiton v${VERSION} — interactive Bitwarden vault auditor
 
@@ -27,12 +32,14 @@ Global Flags:
   --no-color        Disable ANSI color output
   --verbose, -v     Increase log detail (-vv for trace)
   --quiet, -q       Suppress non-essential output
+  --skip <category> Skip a finding category (repeatable)
+  --limit <n>       Stop after n findings per category
   --help, -h        Print help and exit
   --version, -V     Print version and exit
 
 Run 'seiton <command> --help' for command-specific usage.`;
 
-const VALUE_TAKING_FLAGS = new Set(['--config']);
+const VALUE_TAKING_FLAGS = new Set(['--config', '--skip', '--limit']);
 
 function findFirstPositional(rawArgs: string[]): { index: number; value: string } | undefined {
   for (let i = 0; i < rawArgs.length; i++) {
@@ -80,6 +87,8 @@ async function main(): Promise<void> {
         'no-color': { type: 'boolean' },
         verbose: { type: 'boolean', short: 'v', multiple: true },
         quiet: { type: 'boolean', short: 'q' },
+        skip: { type: 'string', multiple: true },
+        limit: { type: 'string' },
       },
     });
   } catch (err) {
@@ -103,13 +112,10 @@ async function main(): Promise<void> {
     : args.values.verbose ? 1 : 0;
   const quiet = Boolean(args.values.quiet);
 
+  const clock = createSystemClock();
   const log = quiet || verboseCount === 0
     ? createNoopLogger()
-    : createLogger({
-        format: 'text',
-        level: verboseCount >= 2 ? 'debug' : 'info',
-        clock: createSystemClock(),
-      });
+    : createLogger({ format: 'text', level: verboseCount >= 2 ? 'debug' : 'info', clock });
 
   installSignalHandlers(log);
 
@@ -121,6 +127,44 @@ async function main(): Promise<void> {
   if (positionalCommand === 'config' && subcommand === 'show') {
     log.debug('dispatching config show');
     await configShow(args.values.config as string | undefined, log, dryRun);
+    return;
+  }
+
+  const command = positionalCommand ?? 'audit';
+  if (command === 'audit') {
+    const config = await loadConfig({
+      cliConfigPath: args.values.config as string | undefined,
+      envConfigPath: process.env['SEITON_CONFIG'],
+      logger: log,
+    });
+
+    const proc = createProcessAdapter(process.env, (code) => process.exit(code), log);
+    const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '/';
+    const fsAdapter = createFsAdapter(homeDir, log);
+    const bwAdapter = createBwAdapter(config.paths.bw_binary, log);
+    const cliSkip = (Array.isArray(args.values.skip) ? args.values.skip : []).filter((v): v is string => typeof v === 'string');
+    const cliLimitRaw = args.values.limit as string | undefined;
+    let cliLimit: number | null = null;
+    if (cliLimitRaw) {
+      const n = Number(cliLimitRaw);
+      if (!Number.isFinite(n) || n < 1 || n > 100_000 || !Number.isInteger(n)) {
+        process.stderr.write(`seiton: audit: --limit must be an integer between 1 and 100000\n`);
+        process.exit(ExitCode.USAGE);
+      }
+      cliLimit = n;
+    }
+
+    await runAudit({
+      config,
+      bw: bwAdapter,
+      fs: fsAdapter,
+      clock,
+      proc,
+      logger: log,
+      dryRun,
+      cliSkipCategories: cliSkip,
+      cliLimit,
+    });
     return;
   }
 
