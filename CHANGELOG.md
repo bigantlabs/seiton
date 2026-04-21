@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-20
+
+### Added
+- Release workflow (`.github/workflows/release.yml`): pushing a `vX.Y.Z` tag triggers build, test, npm publish with provenance, GitHub Release with SHA256SUMS, and a container-based smoke test.
+- Smoke test (`test/integration/release-smoke.test.ts`): verifies the npm tarball contents, `--help`, `--version`, and VERSION file consistency.
+- Install instructions in `README.md` updated with verification commands.
+
+### Fixed
+- Version synchronization: `package.json`, `src/version.ts`, and `VERSION` file now all report `0.3.0`.
+
+- Synchronized version across `package.json`, `src/version.ts`, `VERSION`, and `package-lock.json` to `0.3.0` (M9)
 ## [0.2.7] - 2026-04-20
 
 ### Added

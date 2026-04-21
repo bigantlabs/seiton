@@ -1,0 +1,136 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - run: npm run lint
+
+      - run: npm test
+
+      - name: Package tarball
+        run: npm pack
+
+      - name: Generate SHA256SUMS
+        run: sha256sum seiton-*.tgz > SHA256SUMS
+
+      - name: Verify tag matches package.json version
+        env:
+          TAG_REF: ${{ github.ref_name }}
+        run: |
+          TAG_VERSION="${TAG_REF#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag $TAG_REF does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: |
+            seiton-*.tgz
+            SHA256SUMS
+
+  publish-npm:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Publish with provenance
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  github-release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+
+      - name: Extract release notes from CHANGELOG
+        env:
+          TAG_REF: ${{ github.ref_name }}
+        run: |
+          TAG_VERSION="${TAG_REF#v}"
+          awk -v ver="$TAG_VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if (index($0, "[" ver "]")) found=1
+              next
+            }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          files: |
+            seiton-*.tgz
+            SHA256SUMS
+          fail_on_unmatched_files: true
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: node:22-slim
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+
+      - name: Install from tarball
+        run: npm install -g seiton-*.tgz
+
+      - name: Verify --help
+        run: seiton --help
+
+      - name: Verify --version matches tag
+        env:
+          TAG_REF: ${{ github.ref_name }}
+        run: |
+          TAG_VERSION="${TAG_REF#v}"
+          CLI_VERSION="$(seiton --version)"
+          if [ "$CLI_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::seiton --version ($CLI_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi

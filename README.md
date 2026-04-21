@@ -9,11 +9,30 @@ The name derives from Japanese 整頓 ("set in order"), one of the five principl
 - **Node.js** >= 22
 - **Bitwarden CLI** (`bw`) installed and on your `PATH`
 
-## Quick Start
+## Install
 
 ```sh
 npm install -g seiton
+```
 
+Verify the installation:
+
+```sh
+seiton --version
+```
+
+To verify integrity against the published SHA256SUMS (optional):
+
+```sh
+# Download the release tarball and checksum from GitHub Releases
+curl -LO "https://github.com/AntPerez69367/seiton/releases/download/v$(seiton --version)/SHA256SUMS"
+curl -LO "https://github.com/AntPerez69367/seiton/releases/download/v$(seiton --version)/seiton-$(seiton --version).tgz"
+sha256sum -c SHA256SUMS
+```
+
+## Quick Start
+
+```sh
 # Unlock your vault and export the session
 export BW_SESSION=$(bw unlock --raw)
 
