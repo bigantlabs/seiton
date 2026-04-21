@@ -8,10 +8,10 @@ import { parsePendingQueue } from '../../src/lib/domain/pending.js';
 
 const CHILD_SCRIPT = join(import.meta.dirname, '..', 'helpers', 'audit-sigint-child.ts');
 
-function spawnChild(pendingPath: string): ReturnType<typeof spawn> {
+function spawnChild(pendingPath: string, env: Record<string, string> = {}): ReturnType<typeof spawn> {
   return spawn(process.execPath, ['--import', 'tsx', CHILD_SCRIPT, pendingPath], {
     stdio: ['ignore', 'pipe', 'ignore'],
-    env: { ...process.env, NODE_NO_WARNINGS: '1' },
+    env: { ...process.env, NODE_NO_WARNINGS: '1', ...env },
   });
 }
 
@@ -86,5 +86,21 @@ describe('Audit SIGINT pending-ops persistence', () => {
     const fileStat = await stat(pendingPath);
     const mode = fileStat.mode & 0o777;
     assert.equal(mode, 0o600);
+  });
+
+  it('does not write pending.json when save_pending_on_sigint is false', async () => {
+    const pendingPath = join(tmp, '.local', 'state', 'seiton', 'pending.json');
+    const child = spawnChild(pendingPath, { SAVE_PENDING: 'false' });
+
+    await waitForReady(child);
+    child.kill('SIGINT');
+
+    const { code } = await waitForExit(child);
+    assert.equal(code, 130);
+
+    await assert.rejects(
+      stat(pendingPath),
+      (err: NodeJS.ErrnoException) => err.code === 'ENOENT',
+    );
   });
 });

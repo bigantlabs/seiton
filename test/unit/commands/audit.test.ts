@@ -272,6 +272,20 @@ describe('runAudit', () => {
     });
   });
 
+  describe('SIGINT pending persistence', () => {
+    it('does not write pending when save_pending_on_sigint is false', async () => {
+      const fakeFs = makeFakeFs();
+      const exit = await runAndCatch(makeOpts({
+        config: makeDefaultConfig({
+          audit: { skip_categories: [], limit_per_category: null, save_pending_on_sigint: false },
+        }),
+        fs: fakeFs,
+      }));
+      assert.equal(exit.code, ExitCode.SUCCESS);
+      assert.equal(fakeFs.written.size, 0);
+    });
+  });
+
   describe('skip and limit options', () => {
     it('passes skip categories through to review', async () => {
       const items: BwItem[] = [

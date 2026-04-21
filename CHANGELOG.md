@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.3.2] - 2026-04-21
+
+### Added
+- **Analysis orchestrator** (`src/lib/analyze/index.ts`): Pure function `analyzeItems()` that runs all 5 analyzers (duplicates, password reuse, weak passwords, missing fields, folder suggestions) over vault items. Replaces the inline stub in audit.ts that only checked for missing passwords. (M10)
 
 ### Added
 - **Clack UI layer** (`src/ui/prompts.ts`): Thin wrapper around `@clack/prompts` providing `intro`, `outro`, `select`, `confirm`, `multiselect`, `text`, `spinner`, and log methods. Falls back to plain readline prompts when `ui.prompt_style: "plain"` is configured. (M11)

@@ -11,6 +11,8 @@ if (!pendingPath) {
   process.exit(1);
 }
 
+const savePending = process.env['SAVE_PENDING'] !== 'false';
+
 const ops: PendingOp[] = [
   { kind: 'create_folder', folderName: 'TestFolder' },
   { kind: 'assign_folder', itemId: 'item-1', folderId: null, folderName: 'TestFolder' },
@@ -18,9 +20,11 @@ const ops: PendingOp[] = [
 ];
 
 registerCleanup(async () => {
-  mkdirSync(dirname(pendingPath), { recursive: true });
-  const queue = makePendingQueue(ops, '2024-06-01T00:00:00.000Z');
-  writeFileSync(pendingPath, JSON.stringify(queue, null, 2) + '\n', { mode: 0o600 });
+  if (savePending && ops.length > 0) {
+    mkdirSync(dirname(pendingPath), { recursive: true });
+    const queue = makePendingQueue(ops, '2024-06-01T00:00:00.000Z');
+    writeFileSync(pendingPath, JSON.stringify(queue, null, 2) + '\n', { mode: 0o600 });
+  }
 });
 
 installSignalHandlers();

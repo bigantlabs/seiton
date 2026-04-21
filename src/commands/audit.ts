@@ -14,6 +14,7 @@ import { collectOpsFromFindings, interactiveReview } from '../ui/review-loop.js'
 import { savePendingOps, resolvePendingPath } from './pending-io.js';
 import { registerCleanup } from '../core/signals.js';
 import { createPromptAdapter, type PromptAdapter } from '../ui/prompts.js';
+import { analyzeItems } from '../lib/analyze/index.js';
 
 export interface AuditOptions {
   config: Config;
@@ -106,7 +107,11 @@ async function executeAuditPipeline(
 
   logger.info('audit: analyzing');
   const analyzeSpin = prompt.startSpinner('Analyzing vault…');
-  const findings = analyzeItems(items, config);
+  const findings = analyzeItems(items, {
+    strength: config.strength,
+    dedup: config.dedup,
+    folders: config.folders,
+  });
   analyzeSpin.stop(`Found ${findings.length} findings`);
 
   const skipCategories = [
@@ -199,20 +204,6 @@ async function runReview(
     prompt: opts.prompt,
     maskChar: opts.maskChar,
   });
-}
-
-function analyzeItems(items: readonly import('../lib/domain/types.js').BwItem[], _config: Config): Finding[] {
-  const findings: Finding[] = [];
-  for (const item of items) {
-    if (item.login?.password === '' || (item.login && !item.login.password)) {
-      findings.push({
-        category: 'missing',
-        item,
-        missingFields: ['password'],
-      });
-    }
-  }
-  return findings;
 }
 
 function mapPreflightExit(code: string): ExitCode {
