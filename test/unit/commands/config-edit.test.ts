@@ -62,4 +62,25 @@ describe('configEdit', () => {
       assert.ok(result.error.includes('exited with code'));
     }
   });
+
+  it('splits editor string on whitespace for arguments', async () => {
+    const configPath = join(tempDir, 'config.json');
+    // Use 'echo' which will succeed and accepts multiple arguments
+    // The editor string contains a space, testing the split functionality
+    process.env['EDITOR'] = 'echo test-arg';
+    const result = await configEdit(configPath);
+    // 'echo' command will succeed even with extra args passed to it
+    // The test just verifies the split happens without throwing
+    assert.equal(result.ok, true);
+  });
+
+  it('handles editor with multiple arguments in env variable', async () => {
+    const configPath = join(tempDir, 'config.json');
+    // Test that VISUAL takes precedence over EDITOR
+    process.env['VISUAL'] = 'echo --flag1 --flag2';
+    process.env['EDITOR'] = 'sed';
+    const result = await configEdit(configPath);
+    // Should succeed with the echo command
+    assert.equal(result.ok, true);
+  });
 });
