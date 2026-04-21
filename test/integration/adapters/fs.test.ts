@@ -221,4 +221,75 @@ describe('FsAdapter', () => {
       assert.equal(content, 'ok');
     });
   });
+
+  describe('parent-directory symlink escape', () => {
+    it('readText rejects when an intermediate directory is a symlink pointing outside root', async () => {
+      const outside = await mkdtemp(join(tmpdir(), 'seiton-outside-'));
+      await writeFile(join(outside, 'secret.txt'), 'sensitive');
+      await symlink(outside, join(tmp, 'escape-link'));
+
+      const fs = createFsAdapter(tmp);
+      await assert.rejects(
+        () => fs.readText(join(tmp, 'escape-link', 'secret.txt')),
+        (err: unknown) => {
+          assert.ok(err instanceof FsError);
+          assert.equal(err.code, FsErrorCode.PATH_ESCAPE);
+          return true;
+        },
+      );
+    });
+
+    it('writeAtomic rejects when an intermediate directory is a symlink pointing outside root', async () => {
+      const outside = await mkdtemp(join(tmpdir(), 'seiton-outside-'));
+      await symlink(outside, join(tmp, 'escape-link'));
+
+      const fs = createFsAdapter(tmp);
+      await assert.rejects(
+        () => fs.writeAtomic(join(tmp, 'escape-link', 'pwned.txt'), 'evil'),
+        (err: unknown) => {
+          assert.ok(err instanceof FsError);
+          assert.equal(err.code, FsErrorCode.PATH_ESCAPE);
+          return true;
+        },
+      );
+    });
+
+    it('ensureDir rejects when an intermediate directory is a symlink pointing outside root', async () => {
+      const outside = await mkdtemp(join(tmpdir(), 'seiton-outside-'));
+      await symlink(outside, join(tmp, 'escape-link'));
+
+      const fs = createFsAdapter(tmp);
+      await assert.rejects(
+        () => fs.ensureDir(join(tmp, 'escape-link', 'new-dir')),
+        (err: unknown) => {
+          assert.ok(err instanceof FsError);
+          assert.equal(err.code, FsErrorCode.PATH_ESCAPE);
+          return true;
+        },
+      );
+    });
+
+    it('remove rejects when an intermediate directory is a symlink pointing outside root', async () => {
+      const outside = await mkdtemp(join(tmpdir(), 'seiton-outside-'));
+      await writeFile(join(outside, 'victim.txt'), 'data');
+      await symlink(outside, join(tmp, 'escape-link'));
+
+      const fs = createFsAdapter(tmp);
+      await assert.rejects(
+        () => fs.remove(join(tmp, 'escape-link', 'victim.txt')),
+        (err: unknown) => {
+          assert.ok(err instanceof FsError);
+          assert.equal(err.code, FsErrorCode.PATH_ESCAPE);
+          return true;
+        },
+      );
+    });
+
+    it('allows operations when root itself is reached via a symlinked tmpdir', async () => {
+      const fs = createFsAdapter(tmp);
+      const target = join(tmp, 'ok.txt');
+      await fs.writeAtomic(target, 'fine');
+      assert.equal(await fs.readText(target), 'fine');
+    });
+  });
 });

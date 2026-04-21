@@ -1,5 +1,5 @@
-import { readFile, writeFile, rename, unlink, lstat, mkdir } from 'node:fs/promises';
-import { join, resolve, dirname, relative, sep } from 'node:path';
+import { readFile, writeFile, rename, unlink, lstat, mkdir, realpath } from 'node:fs/promises';
+import { join, resolve, dirname, relative, sep, isAbsolute } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import type { Logger } from './logging.js';
 
@@ -39,6 +39,19 @@ type FsOperation = 'read' | 'write';
 
 export function createFsAdapter(root?: string, logger?: Logger): FsAdapter {
   const resolvedRoot = root ? resolve(root) : undefined;
+  let realRootPromise: Promise<string> | undefined;
+
+  function getRealRoot(): Promise<string> | undefined {
+    if (!resolvedRoot) return undefined;
+    if (!realRootPromise) {
+      realRootPromise = realpath(resolvedRoot).catch((err: unknown) => {
+        const code = (err as { code?: string } | null)?.code;
+        if (code === 'ENOENT') return resolvedRoot;
+        throw err;
+      });
+    }
+    return realRootPromise;
+  }
 
   function assertWithinRoot(targetPath: string): void {
     if (!resolvedRoot) return;
@@ -47,6 +60,47 @@ export function createFsAdapter(root?: string, logger?: Logger): FsAdapter {
     const escapes = rel === '..' || rel.startsWith(`..${sep}`);
     if (escapes || resolve(resolvedRoot, rel) !== resolved) {
       throw new FsError(FsErrorCode.PATH_ESCAPE, targetPath, `Path ${targetPath} escapes root ${resolvedRoot}`);
+    }
+  }
+
+  async function nearestExistingRealpath(p: string): Promise<string> {
+    let current = p;
+    while (true) {
+      try {
+        return await realpath(current);
+      } catch (err: unknown) {
+        const code = (err as { code?: string } | null)?.code;
+        if (code !== 'ENOENT') throw err;
+        const parent = dirname(current);
+        if (parent === current) return current;
+        current = parent;
+      }
+    }
+  }
+
+  async function assertRealParentWithinRoot(targetPath: string, operation: FsOperation): Promise<void> {
+    const rootPromise = getRealRoot();
+    if (!rootPromise) return;
+    const realRoot = await rootPromise;
+
+    const parent = dirname(targetPath);
+    if (parent === targetPath) return;
+
+    let realParent: string;
+    try {
+      realParent = await nearestExistingRealpath(parent);
+    } catch (err: unknown) {
+      throw mapNodeError(err, targetPath, operation);
+    }
+
+    if (realParent === realRoot) return;
+    const rel = relative(realRoot, realParent);
+    if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+      throw new FsError(
+        FsErrorCode.PATH_ESCAPE,
+        targetPath,
+        `Path ${targetPath} escapes root ${resolvedRoot} via symlink (real parent: ${realParent})`,
+      );
     }
   }
 
@@ -68,6 +122,7 @@ export function createFsAdapter(root?: string, logger?: Logger): FsAdapter {
     async readText(path: string): Promise<string> {
       const resolved = resolve(path);
       assertWithinRoot(resolved);
+      await assertRealParentWithinRoot(resolved, 'read');
       await assertNotSymlink(resolved, 'read');
       logger?.debug('fs: readText', { path: resolved });
       try {
@@ -80,6 +135,7 @@ export function createFsAdapter(root?: string, logger?: Logger): FsAdapter {
     async writeAtomic(path: string, content: string, mode: number = 0o600): Promise<void> {
       const resolved = resolve(path);
       assertWithinRoot(resolved);
+      await assertRealParentWithinRoot(resolved, 'write');
       await assertNotSymlink(resolved, 'write');
       logger?.debug('fs: writeAtomic', { path: resolved, mode });
 
@@ -114,6 +170,7 @@ export function createFsAdapter(root?: string, logger?: Logger): FsAdapter {
     async remove(path: string): Promise<void> {
       const resolved = resolve(path);
       assertWithinRoot(resolved);
+      await assertRealParentWithinRoot(resolved, 'write');
       logger?.debug('fs: remove', { path: resolved });
       try {
         await unlink(resolved);
@@ -128,6 +185,12 @@ export function createFsAdapter(root?: string, logger?: Logger): FsAdapter {
       const resolved = resolve(path);
       assertWithinRoot(resolved);
       try {
+        await assertRealParentWithinRoot(resolved, 'read');
+      } catch (err: unknown) {
+        if (err instanceof FsError && err.code === FsErrorCode.PATH_ESCAPE) throw err;
+        return false;
+      }
+      try {
         const stats = await lstat(resolved);
         return !stats.isSymbolicLink();
       } catch (err: unknown) {
@@ -140,6 +203,7 @@ export function createFsAdapter(root?: string, logger?: Logger): FsAdapter {
     async ensureDir(path: string): Promise<void> {
       const resolved = resolve(path);
       assertWithinRoot(resolved);
+      await assertRealParentWithinRoot(resolved, 'write');
       try {
         await mkdir(resolved, { recursive: true });
       } catch (err: unknown) {
