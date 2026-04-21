@@ -49,6 +49,12 @@ export async function applyOps(
       folderId = folderIdMap.get(op.folderName)!;
     }
 
+    if (!folderId) {
+      logger?.error('apply: folder ID not resolved', { itemId: op.itemId, folderName: op.folderName });
+      failed.push(op);
+      continue;
+    }
+
     logger?.info('apply: assigning folder', { itemId: op.itemId, folderName: op.folderName });
     const itemResult = await bw.getItem(session, op.itemId);
     if (!itemResult.ok) {
