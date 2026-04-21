@@ -9,6 +9,7 @@ export interface DoctorOptions {
   envConfigPath?: string;
   debug?: boolean;
   logger?: Logger;
+  bwSession?: string;
 }
 
 export interface CheckResult {
@@ -24,8 +25,8 @@ export async function runDoctorChecks(opts: DoctorOptions = {}): Promise<CheckRe
   const results: CheckResult[] = [];
   results.push(checkNodeVersion());
   results.push(await checkBwBinary(log));
-  results.push(checkBwSession());
-  results.push(await checkConfig(opts));
+  results.push(checkBwSession(opts.bwSession));
+  results.push(await checkConfig(opts, log));
   results.push(checkVersion());
   return results;
 }
@@ -52,9 +53,9 @@ async function checkBwBinary(logger?: Logger): Promise<CheckResult> {
   }
 }
 
-function checkBwSession(): CheckResult {
-  const session = process.env['BW_SESSION'];
-  if (session && session.length > 0) {
+function checkBwSession(session?: string): CheckResult {
+  const value = session ?? process.env['BW_SESSION'];
+  if (value && value.length > 0) {
     return { name: 'session', status: 'ok', detail: 'BW_SESSION is set' };
   }
   return {
@@ -64,11 +65,12 @@ function checkBwSession(): CheckResult {
   };
 }
 
-async function checkConfig(opts: DoctorOptions): Promise<CheckResult> {
+async function checkConfig(opts: DoctorOptions, logger?: Logger): Promise<CheckResult> {
   try {
     const { path } = await loadConfigWithPath({
       cliConfigPath: opts.cliConfigPath,
       envConfigPath: opts.envConfigPath,
+      logger,
     });
     return { name: 'config', status: 'ok', detail: `valid (${path ?? 'defaults'})` };
   } catch (err: unknown) {

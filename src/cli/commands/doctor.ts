@@ -103,6 +103,7 @@ export function parseDoctorArgs(argv: string[]): { help: boolean; opts: DoctorOp
       envConfigPath: process.env['SEITON_CONFIG'],
       debug: parsed.values.debug as boolean | undefined,
       logger,
+      bwSession: process.env['BW_SESSION'],
     },
   };
 }
@@ -123,6 +124,6 @@ export async function runDoctor(argv: string[]): Promise<void> {
       const msg = err instanceof Error ? err.message : String(err);
       process.stderr.write(`seiton: doctor: unexpected error: ${msg}\nRun with --debug to see the full stack trace.\n`);
     }
-    process.exit(ExitCode.MALFORMED_INPUT);
+    process.exit(ExitCode.INTERNAL_ERROR);
   }
 }
