@@ -153,7 +153,7 @@ function findFolderSuggestions(
       config.enabled_categories,
     );
     if (folder) {
-      findings.push(makeFolderFinding(item, folder, folder));
+      findings.push(makeFolderFinding(item, folder));
     }
   }
   return findings;

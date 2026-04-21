@@ -102,8 +102,7 @@ async function executeAuditPipeline(
   }
 
   const items = itemsResult.data;
-  const _folders = foldersResult.data;
-  fetchSpin.stop(`Fetched ${items.length} items, ${_folders.length} folders`);
+  fetchSpin.stop(`Fetched ${items.length} items, ${foldersResult.data.length} folders`);
 
   logger.info('audit: analyzing');
   const analyzeSpin = prompt.startSpinner('Analyzing vault…');

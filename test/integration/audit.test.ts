@@ -2,22 +2,12 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdtemp, writeFile, mkdir, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { ROOT, ENTRY, FAKE_BW, type RunResult } from '../helpers/run-cli.js';
 
 const execFileAsync = promisify(execFile);
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const ENTRY = join(ROOT, 'src', 'bw-organize.ts');
-const FAKE_BW = join(ROOT, 'test', 'helpers', 'fake-bw.ts');
-
-interface RunResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-}
 
 async function runAudit(
   args: string[] = [],

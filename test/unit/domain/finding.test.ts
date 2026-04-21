@@ -86,10 +86,9 @@ describe('Finding construction', () => {
   });
 
   it('constructs FolderFinding', () => {
-    const finding = makeFolderFinding(STUB_ITEM, 'Development', 'github');
+    const finding = makeFolderFinding(STUB_ITEM, 'Development');
     assert.equal(finding.category, 'folders');
     assert.equal(finding.suggestedFolder, 'Development');
-    assert.equal(finding.matchedRule, 'github');
   });
 });
 
@@ -100,7 +99,7 @@ describe('Finding discriminant', () => {
       makeReuseFinding([STUB_ITEM], 'hash'),
       makeWeakFinding(STUB_ITEM, 2, ['reason']),
       makeMissingFinding(STUB_ITEM, ['field']),
-      makeFolderFinding(STUB_ITEM, 'Folder', 'rule'),
+      makeFolderFinding(STUB_ITEM, 'Folder'),
     ];
 
     const categories = findings.map((f) => f.category);

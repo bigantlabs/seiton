@@ -39,7 +39,6 @@ export type FolderFinding = {
   readonly category: 'folders';
   readonly item: BwItem;
   readonly suggestedFolder: string;
-  readonly matchedRule: string;
 };
 
 export type Finding =
@@ -80,10 +79,9 @@ export function makeMissingFinding(
 
 export function makeFolderFinding(
   item: BwItem,
-  suggestedFolder: string,
-  matchedRule: string,
+  folder: string,
 ): FolderFinding {
-  return { category: 'folders', item, suggestedFolder, matchedRule };
+  return { category: 'folders', item, suggestedFolder: folder };
 }
 
 export function isFindingCategory(value: string): value is FindingCategory {

@@ -1,7 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { runAudit, type AuditOptions } from '../../../src/commands/audit.js';
-import type { BwAdapter, BwResult } from '../../../src/lib/bw.js';
 import type { ProcessAdapter } from '../../../src/adapters/process.js';
 import type { FsAdapter } from '../../../src/adapters/fs.js';
 import type { Clock } from '../../../src/adapters/clock.js';
@@ -10,6 +9,7 @@ import type { Config } from '../../../src/config/schema.js';
 import type { BwItem, BwFolder } from '../../../src/lib/domain/types.js';
 import { makeBwError, BwErrorCode } from '../../../src/lib/domain/types.js';
 import { ExitCode } from '../../../src/exit-codes.js';
+import { makeFakeAdapter } from '../../helpers/fake-adapter.js';
 
 class ExitSignal extends Error {
   constructor(public readonly code: number) {
@@ -30,29 +30,6 @@ function makeDefaultConfig(overrides?: Partial<Config>): Config {
     logging: { format: 'text', level: 'info' },
     ...overrides,
   } as Config;
-}
-
-function makeFakeAdapter(overrides: Partial<BwAdapter> = {}): BwAdapter {
-  return {
-    getVersion: async () => ({ ok: true, data: '2024.6.0' }) as BwResult<string>,
-    getStatus: async () => ({ ok: true, data: { status: 'unlocked' } }) as BwResult<{ status: string }>,
-    getItem: async (_session, itemId) => ({
-      ok: true,
-      data: {
-        id: itemId, organizationId: null, folderId: null, type: 1 as const,
-        name: 'Test Item', notes: null, favorite: false,
-        login: { uris: [{ match: null, uri: 'https://example.com' }], username: 'user', password: 'pass', totp: null },
-        revisionDate: '2024-01-01T00:00:00.000Z',
-      },
-    }),
-    listItems: async () => ({ ok: true, data: [] }) as BwResult<BwItem[]>,
-    listFolders: async () => ({ ok: true, data: [] }) as BwResult<BwFolder[]>,
-    editItem: async () => ({ ok: true, data: undefined }) as BwResult<void>,
-    deleteItem: async () => ({ ok: true, data: undefined }) as BwResult<void>,
-    createFolder: async () => ({ ok: true, data: 'new-id' }) as BwResult<string>,
-    sync: async () => ({ ok: true, data: undefined }) as BwResult<void>,
-    ...overrides,
-  };
 }
 
 function makeFakeProc(

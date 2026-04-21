@@ -129,7 +129,7 @@ describe('interactiveReview', () => {
 
   it('creates folder ops when user accepts folder suggestion', async () => {
     const findings: Finding[] = [
-      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking', matchedRule: 'bank' },
+      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking' },
     ];
     const prompt = makeMockPrompt([0]);
     const result = await interactiveReview(findings, {
@@ -145,7 +145,7 @@ describe('interactiveReview', () => {
 
   it('skips folder finding when user selects skip', async () => {
     const findings: Finding[] = [
-      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking', matchedRule: 'bank' },
+      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking' },
     ];
     const prompt = makeMockPrompt([1]);
     const result = await interactiveReview(findings, {
@@ -156,5 +156,160 @@ describe('interactiveReview', () => {
     });
     assert.equal(result.ops.length, 0);
     assert.equal(result.reviewed, 1);
+  });
+
+  it('acknowledges weak finding when user confirms', async () => {
+    const findings: Finding[] = [
+      { category: 'weak', item: makeItem(), score: 1, reasons: ['short'] },
+    ];
+    const prompt = makeMockPrompt([true]);
+    const result = await interactiveReview(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+      prompt,
+      maskChar: '•',
+    });
+    assert.equal(result.ops.length, 0);
+    assert.equal(result.reviewed, 1);
+  });
+
+  it('cancels on null from confirm (weak finding)', async () => {
+    const findings: Finding[] = [
+      { category: 'weak', item: makeItem(), score: 1, reasons: ['short'] },
+    ];
+    const prompt = makeMockPrompt([null]);
+    const result = await interactiveReview(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+      prompt,
+      maskChar: '•',
+    });
+    assert.equal(result.reviewed, 0);
+  });
+
+  it('acknowledges missing-fields finding when user confirms', async () => {
+    const findings: Finding[] = [
+      { category: 'missing', item: makeItem(), missingFields: ['password'] },
+    ];
+    const prompt = makeMockPrompt([true]);
+    const result = await interactiveReview(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+      prompt,
+      maskChar: '•',
+    });
+    assert.equal(result.ops.length, 0);
+    assert.equal(result.reviewed, 1);
+  });
+
+  it('cancels on null from confirm (missing finding)', async () => {
+    const findings: Finding[] = [
+      { category: 'missing', item: makeItem(), missingFields: ['password'] },
+    ];
+    const prompt = makeMockPrompt([null]);
+    const result = await interactiveReview(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+      prompt,
+      maskChar: '•',
+    });
+    assert.equal(result.reviewed, 0);
+  });
+
+  it('acknowledges reuse finding when user confirms', async () => {
+    const items = [makeItem({ id: 'a' }), makeItem({ id: 'b' })];
+    const findings: Finding[] = [
+      { category: 'reuse', items, passwordHash: 'abc123' },
+    ];
+    const prompt = makeMockPrompt([true]);
+    const result = await interactiveReview(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+      prompt,
+      maskChar: '•',
+    });
+    assert.equal(result.ops.length, 0);
+    assert.equal(result.reviewed, 1);
+  });
+
+  it('cancels on null from confirm (reuse finding)', async () => {
+    const items = [makeItem({ id: 'a' }), makeItem({ id: 'b' })];
+    const findings: Finding[] = [
+      { category: 'reuse', items, passwordHash: 'abc123' },
+    ];
+    const prompt = makeMockPrompt([null]);
+    const result = await interactiveReview(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+      prompt,
+      maskChar: '•',
+    });
+    assert.equal(result.reviewed, 0);
+  });
+
+  it('cancels on null from folder select', async () => {
+    const findings: Finding[] = [
+      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking' },
+    ];
+    const prompt = makeMockPrompt([null]);
+    const result = await interactiveReview(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+      prompt,
+      maskChar: '•',
+    });
+    assert.equal(result.ops.length, 0);
+    assert.equal(result.reviewed, 0);
+  });
+
+  it('handles mixed finding types in sequence', async () => {
+    const findings: Finding[] = [
+      { category: 'weak', item: makeItem({ id: '1' }), score: 1, reasons: ['short'] },
+      { category: 'folders', item: makeItem({ id: '2' }), suggestedFolder: 'Banking' },
+      { category: 'missing', item: makeItem({ id: '3' }), missingFields: ['username'] },
+    ];
+    const prompt = makeMockPrompt([true, 0, true]);
+    const result = await interactiveReview(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+      prompt,
+      maskChar: '•',
+    });
+    assert.equal(result.reviewed, 3);
+    assert.equal(result.ops.length, 2);
+  });
+
+  it('deduplicates create_folder ops across multiple folder findings', async () => {
+    const findings: Finding[] = [
+      { category: 'folders', item: makeItem({ id: '1' }), suggestedFolder: 'Banking' },
+      { category: 'folders', item: makeItem({ id: '2' }), suggestedFolder: 'Banking' },
+    ];
+    const prompt = makeMockPrompt([0, 0]);
+    const result = await interactiveReview(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+      prompt,
+      maskChar: '•',
+    });
+    const createOps = result.ops.filter(op => op.kind === 'create_folder');
+    assert.equal(createOps.length, 1);
+    const assignOps = result.ops.filter(op => op.kind === 'assign_folder');
+    assert.equal(assignOps.length, 2);
+  });
+
+  it('keeps second duplicate when user selects index 1', async () => {
+    const items = [makeItem({ id: 'a' }), makeItem({ id: 'b' })];
+    const findings: Finding[] = [
+      { category: 'duplicates', items, key: 'k1' },
+    ];
+    const prompt = makeMockPrompt([1]);
+    const result = await interactiveReview(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+      prompt,
+      maskChar: '•',
+    });
+    assert.equal(result.ops.length, 1);
+    assert.equal(result.ops[0]!.kind, 'delete_item');
   });
 });

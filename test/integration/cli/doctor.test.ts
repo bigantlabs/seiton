@@ -5,20 +5,9 @@ import { promisify } from 'node:util';
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
+import { ROOT, ENTRY, FAKE_BW, type RunResult } from '../../helpers/run-cli.js';
 
 const execFileAsync = promisify(execFile);
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const ENTRY = join(ROOT, 'src', 'bw-organize.ts');
-const FAKE_BW = join(ROOT, 'test', 'helpers', 'fake-bw.ts');
-
-interface RunResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-}
 
 let tempHome: string;
 

@@ -233,6 +233,104 @@ describe('analyzeItems', () => {
     });
   });
 
+  describe('folder finding producer shape', () => {
+    it('produces FolderFinding with item reference and suggestedFolder from analyzeItems', () => {
+      const item = makeItem({
+        id: 'github-item',
+        folderId: null,
+        name: 'GitHub',
+        login: { uris: [{ match: null, uri: 'https://github.com' }], username: 'dev', password: 'Str0ng!Passw0rd', totp: null },
+      });
+      const config = makeConfig({
+        folders: { preserve_existing: true, enabled_categories: ['Development'], custom_rules: [] },
+      });
+      const findings = analyzeItems([item], config);
+      const folders = findings.filter((f) => f.category === 'folders');
+      assert.equal(folders.length, 1);
+      const f = folders[0]!;
+      assert.equal(f.category, 'folders');
+      if (f.category === 'folders') {
+        assert.equal(f.item.id, 'github-item');
+        assert.equal(f.suggestedFolder, 'Development');
+        assert.equal('matchedRule' in f, false, 'FolderFinding should not have matchedRule property');
+      }
+    });
+
+    it('produces FolderFinding via custom_rules through analyzeItems', () => {
+      const item = makeItem({
+        id: 'custom-item',
+        folderId: null,
+        name: 'My Crypto Exchange',
+        login: { uris: [{ match: null, uri: 'https://exchange.example.com' }], username: 'trader', password: 'Str0ng!Passw0rd', totp: null },
+      });
+      const config = makeConfig({
+        folders: {
+          preserve_existing: true,
+          enabled_categories: [],
+          custom_rules: [{ folder: 'Crypto', keywords: ['crypto'] }],
+        },
+      });
+      const findings = analyzeItems([item], config);
+      const folders = findings.filter((f) => f.category === 'folders');
+      assert.equal(folders.length, 1);
+      if (folders[0]!.category === 'folders') {
+        assert.equal(folders[0].item.id, 'custom-item');
+        assert.equal(folders[0].suggestedFolder, 'Crypto');
+      }
+    });
+
+    it('classifies items by URI when name does not match', () => {
+      const item = makeItem({
+        id: 'uri-match',
+        folderId: null,
+        name: 'My Account',
+        login: { uris: [{ match: null, uri: 'https://gmail.com/login' }], username: 'u', password: 'Str0ng!Passw0rd', totp: null },
+      });
+      const config = makeConfig({
+        folders: { preserve_existing: true, enabled_categories: ['Email'], custom_rules: [] },
+      });
+      const findings = analyzeItems([item], config);
+      const folders = findings.filter((f) => f.category === 'folders');
+      assert.equal(folders.length, 1);
+      if (folders[0]!.category === 'folders') {
+        assert.equal(folders[0].suggestedFolder, 'Email');
+      }
+    });
+
+    it('does not produce FolderFinding when no rule matches', () => {
+      const item = makeItem({
+        id: 'no-match',
+        folderId: null,
+        name: 'Random Service',
+        login: { uris: [{ match: null, uri: 'https://uniquesite.example.com' }], username: 'u', password: 'Str0ng!Passw0rd', totp: null },
+      });
+      const config = makeConfig({
+        folders: { preserve_existing: true, enabled_categories: ['Banking & Finance'], custom_rules: [] },
+      });
+      const findings = analyzeItems([item], config);
+      const folders = findings.filter((f) => f.category === 'folders');
+      assert.equal(folders.length, 0);
+    });
+
+    it('filters null URIs before classification', () => {
+      const item = makeItem({
+        id: 'null-uri-folder',
+        folderId: null,
+        name: 'Netflix',
+        login: { uris: [{ match: null, uri: null }, { match: null, uri: 'https://netflix.com' }], username: 'u', password: 'Str0ng!Passw0rd', totp: null },
+      });
+      const config = makeConfig({
+        folders: { preserve_existing: true, enabled_categories: ['Entertainment'], custom_rules: [] },
+      });
+      const findings = analyzeItems([item], config);
+      const folders = findings.filter((f) => f.category === 'folders');
+      assert.equal(folders.length, 1);
+      if (folders[0]!.category === 'folders') {
+        assert.equal(folders[0].suggestedFolder, 'Entertainment');
+      }
+    });
+  });
+
   describe('determinism', () => {
     it('produces identical findings for identical input', () => {
       const items = [

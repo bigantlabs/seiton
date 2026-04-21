@@ -1,26 +1,13 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-
-const execFileAsync = promisify(execFile);
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const ENTRY = join(ROOT, 'src', 'bw-organize.ts');
-
-interface RunResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-}
+import { runCli as runCliBase, type RunResult } from '../helpers/run-cli.js';
 
 const CONFIG_ENV_VARS_TO_SANITIZE = ['SEITON_CONFIG', 'XDG_CONFIG_HOME'] as const;
 
-async function runCli(
+async function runConfigCli(
   args: string[] = [],
   env: Record<string, string> = {},
 ): Promise<RunResult> {
@@ -32,17 +19,7 @@ async function runCli(
   for (const key of CONFIG_ENV_VARS_TO_SANITIZE) {
     if (!(key in env)) delete mergedEnv[key];
   }
-  try {
-    const { stdout, stderr } = await execFileAsync(
-      process.execPath,
-      ['--import', 'tsx', ENTRY, ...args],
-      { cwd: ROOT, env: mergedEnv as NodeJS.ProcessEnv },
-    );
-    return { stdout, stderr, exitCode: 0 };
-  } catch (err: unknown) {
-    const e = err as { stdout: string; stderr: string; code: number };
-    return { stdout: e.stdout ?? '', stderr: e.stderr ?? '', exitCode: e.code };
-  }
+  return runCliBase(args, { env: mergedEnv });
 }
 
 describe('seiton config show', () => {
@@ -53,7 +30,7 @@ describe('seiton config show', () => {
   });
 
   it('prints valid JSON with defaults when no config file exists', async () => {
-    const { stdout, exitCode } = await runCli(
+    const { stdout, exitCode } = await runConfigCli(
       ['config', 'show'],
       { HOME: tmp },
     );
@@ -70,7 +47,7 @@ describe('seiton config show', () => {
       version: 1,
       strength: { min_length: 24 },
     }));
-    const { stdout, exitCode } = await runCli(
+    const { stdout, exitCode } = await runConfigCli(
       ['config', 'show', '--config', cfgPath],
     );
     assert.equal(exitCode, 0);
@@ -80,7 +57,7 @@ describe('seiton config show', () => {
   });
 
   it('exits non-zero when --config points to missing file', async () => {
-    const { stderr, exitCode } = await runCli(
+    const { stderr, exitCode } = await runConfigCli(
       ['config', 'show', '--config', join(tmp, 'nope.json')],
     );
     assert.notEqual(exitCode, 0);
@@ -90,7 +67,7 @@ describe('seiton config show', () => {
   it('exits non-zero for invalid JSON', async () => {
     const cfgPath = join(tmp, 'broken.json');
     await writeFile(cfgPath, '{not valid json!!!}');
-    const { stderr, exitCode } = await runCli(
+    const { stderr, exitCode } = await runConfigCli(
       ['config', 'show', '--config', cfgPath],
     );
     assert.notEqual(exitCode, 0);
@@ -103,7 +80,7 @@ describe('seiton config show', () => {
       version: 1,
       strength: { min_length: 'not_a_number' },
     }));
-    const { stderr, exitCode } = await runCli(
+    const { stderr, exitCode } = await runConfigCli(
       ['config', 'show', '--config', cfgPath],
     );
     assert.notEqual(exitCode, 0);
@@ -116,7 +93,7 @@ describe('seiton config show', () => {
       version: 1,
       runtime: { max_parallelism: 4 },
     }));
-    const { stderr, exitCode } = await runCli(
+    const { stderr, exitCode } = await runConfigCli(
       ['config', 'show', '--config', cfgPath],
     );
     assert.notEqual(exitCode, 0);
@@ -129,7 +106,7 @@ describe('seiton config show', () => {
       version: 1,
       core: { verbose: 0 },
     }));
-    const { stdout, exitCode } = await runCli(
+    const { stdout, exitCode } = await runConfigCli(
       ['config', 'show', '--config', cfgPath],
       { SEITON_CORE_VERBOSE: '2' },
     );
@@ -145,7 +122,7 @@ describe('seiton config show', () => {
       version: 1,
       paths: { bw_binary: '/usr/local/bin/bw', pending_queue: '/home/.state/pq' },
     }));
-    const { stdout, exitCode } = await runCli(
+    const { stdout, exitCode } = await runConfigCli(
       ['config', 'show', '--config', cfgPath],
     );
     assert.equal(exitCode, 0);
@@ -161,7 +138,7 @@ describe('seiton config show', () => {
       version: 1,
       dedup: { name_similarity_threshold: 5 },
     }));
-    const { stdout, exitCode } = await runCli(
+    const { stdout, exitCode } = await runConfigCli(
       ['config', 'show'],
       { HOME: tmp, SEITON_CONFIG: cfgPath },
     );
@@ -172,7 +149,7 @@ describe('seiton config show', () => {
   });
 
   it('SEITON_CONFIG exits non-zero when file is missing', async () => {
-    const { stderr, exitCode } = await runCli(
+    const { stderr, exitCode } = await runConfigCli(
       ['config', 'show'],
       { HOME: tmp, SEITON_CONFIG: join(tmp, 'missing.json') },
     );
@@ -187,7 +164,7 @@ describe('seiton config show', () => {
       version: 1,
       dedup: { name_similarity_threshold: 9 },
     }));
-    const { stdout, exitCode } = await runCli(
+    const { stdout, exitCode } = await runConfigCli(
       ['config', 'show'],
       { HOME: tmp },
     );

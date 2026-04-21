@@ -2,20 +2,13 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { stat } from 'node:fs/promises';
+import { ROOT, type RunResult } from '../helpers/run-cli.js';
 
 const execFileAsync = promisify(execFile);
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const WEBSITE_DIR = join(ROOT, 'website');
-
-interface RunResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-}
 
 async function runCommand(
   cmd: string,
