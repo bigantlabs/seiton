@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, stat, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { parsePendingQueue } from '../../src/lib/domain/pending.js';
@@ -19,6 +19,7 @@ function waitForReady(child: ReturnType<typeof spawn>): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       child.stdout!.off('data', onData);
+      child.kill();
       reject(new Error('Child did not become ready within 5s'));
     }, 5_000);
     const onData = (data: Buffer) => {
@@ -38,8 +39,16 @@ function waitForReady(child: ReturnType<typeof spawn>): Promise<void> {
 }
 
 function waitForExit(child: ReturnType<typeof spawn>): Promise<{ code: number | null; signal: string | null }> {
-  return new Promise((resolve) => {
-    child.on('exit', (code, signal) => resolve({ code, signal }));
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.off('exit', onExit);
+      reject(new Error('Child did not exit within 5s'));
+    }, 5_000);
+    const onExit = (code: number | null, signal: string | null) => {
+      clearTimeout(timeout);
+      resolve({ code, signal });
+    };
+    child.on('exit', onExit);
   });
 }
 
@@ -50,14 +59,19 @@ describe('Audit SIGINT pending-ops persistence', () => {
     tmp = await mkdtemp(join(tmpdir(), 'seiton-audit-sigint-'));
   });
 
+  afterEach(async () => {
+    await rm(tmp, { recursive: true, force: true });
+  });
+
   it('saves pending ops to pending.json when SIGINT is received', async () => {
     const pendingPath = join(tmp, '.local', 'state', 'seiton', 'pending.json');
     const child = spawnChild(pendingPath);
 
     await waitForReady(child);
+    const exitPromise = waitForExit(child);
     child.kill('SIGINT');
 
-    const { code } = await waitForExit(child);
+    const { code } = await exitPromise;
     assert.equal(code, 130);
 
     const content = await readFile(pendingPath, 'utf-8');
@@ -79,9 +93,10 @@ describe('Audit SIGINT pending-ops persistence', () => {
     const child = spawnChild(pendingPath);
 
     await waitForReady(child);
+    const exitPromise = waitForExit(child);
     child.kill('SIGINT');
 
-    await waitForExit(child);
+    await exitPromise;
 
     const fileStat = await stat(pendingPath);
     const mode = fileStat.mode & 0o777;
@@ -93,9 +108,10 @@ describe('Audit SIGINT pending-ops persistence', () => {
     const child = spawnChild(pendingPath, { SAVE_PENDING: 'false' });
 
     await waitForReady(child);
+    const exitPromise = waitForExit(child);
     child.kill('SIGINT');
 
-    const { code } = await waitForExit(child);
+    const { code } = await exitPromise;
     assert.equal(code, 130);
 
     await assert.rejects(
