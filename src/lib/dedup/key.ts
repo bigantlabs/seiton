@@ -9,10 +9,10 @@ export function normalizeDomain(uri: string | null | undefined): string {
 
   try {
     return new URL(uri).hostname.toLowerCase();
-  } catch {
+  } catch (_err: unknown) {
     try {
       return new URL(`http://${uri}`).hostname.toLowerCase();
-    } catch {
+    } catch (_innerErr: unknown) {
       return uri.toLowerCase();
     }
   }

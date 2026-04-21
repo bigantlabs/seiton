@@ -29,21 +29,21 @@ const ITEM_WITH_SECRETS: BwItem = {
 };
 
 describe('maskPassword', () => {
-  it('replaces password with mask characters', () => {
+  it('replaces password with fixed-length mask characters', () => {
     const masked = maskPassword('mypassword');
     assert.ok(!masked.includes('mypassword'));
-    assert.equal(masked.length, 10);
+    assert.equal(masked.length, 8);
     assert.match(masked, /^•+$/);
   });
 
   it('uses custom mask character', () => {
     const masked = maskPassword('test', '*');
-    assert.equal(masked, '****');
+    assert.equal(masked, '********');
   });
 
-  it('caps mask at 20 characters for long passwords', () => {
+  it('uses fixed-length mask regardless of password length', () => {
     const masked = maskPassword('a'.repeat(50));
-    assert.equal(masked.length, 20);
+    assert.equal(masked.length, 8);
   });
 
   it('returns empty string for null', () => {

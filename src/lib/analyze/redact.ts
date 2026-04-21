@@ -23,7 +23,7 @@ export function maskPassword(
 ): string {
   if (password === null || password === undefined) return '';
   if (password === '') return '<empty>';
-  return maskChar.repeat(Math.min(password.length, 20));
+  return maskChar.repeat(8);
 }
 
 export function redactTotp(
@@ -46,7 +46,7 @@ export function stripUriCredentials(uri: string): string {
     parsed.username = '';
     parsed.password = '';
     return parsed.toString();
-  } catch {
+  } catch (_err: unknown) {
     return uri;
   }
 }
