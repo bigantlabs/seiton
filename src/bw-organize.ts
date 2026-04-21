@@ -8,9 +8,6 @@ import { runResumeCli } from './cli/commands/resume.js';
 import { runDiscardCli } from './cli/commands/discard.js';
 import { runReportCli } from './cli/commands/report.js';
 import { runConfigCli } from './cli/commands/config.js';
-import { createLogger, createNoopLogger } from './adapters/logging.js';
-import { createSystemClock } from './adapters/clock.js';
-import { installSignalHandlers } from './core/signals.js';
 
 const HELP_TEXT = `seiton v${VERSION} — interactive Bitwarden vault auditor
 
@@ -82,26 +79,12 @@ async function main(): Promise<void> {
     process.exit(ExitCode.USAGE);
   }
 
-  if (command === 'doctor') {
-    const verboseCount = commandArgs.filter((a) => a === '--verbose' || a === '-v').length;
-    const quiet = commandArgs.includes('--quiet') || commandArgs.includes('-q');
-    const earlyLog = quiet || verboseCount === 0
-      ? createNoopLogger()
-      : createLogger({
-          format: 'text',
-          level: verboseCount >= 2 ? 'debug' : 'info',
-          clock: createSystemClock(),
-        });
-    installSignalHandlers(earlyLog);
-    await runDoctor(commandArgs);
-    return;
-  }
-
   switch (command) {
     case 'audit': return runAuditCli(commandArgs);
     case 'resume': return runResumeCli(commandArgs);
     case 'discard': return runDiscardCli(commandArgs);
     case 'report': return runReportCli(commandArgs);
+    case 'doctor': return runDoctor(commandArgs);
     case 'config': return runConfigCli(commandArgs);
   }
 }

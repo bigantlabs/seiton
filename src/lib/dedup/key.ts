@@ -45,11 +45,7 @@ export function dedupKey(
   // Exact-host matching by design: different subdomains often host different
   // services with separate credentials (mail.google.com vs accounts.google.com).
   // registrableDomain is exported for callers that want eTLD+1 grouping elsewhere.
-  let domain = normalizeDomain(uri);
-
-  if (options.treatWwwAsSameDomain) {
-    domain = stripWww(domain);
-  }
+  const domain = normalizeForDedup(uri, options.treatWwwAsSameDomain);
 
   let user = username ?? '';
   if (options.caseInsensitiveUsernames) {
@@ -57,4 +53,34 @@ export function dedupKey(
   }
 
   return `${domain}:${user}`;
+}
+
+export function dedupKeyMulti(
+  uris: readonly string[],
+  username: string | null | undefined,
+  options: {
+    readonly treatWwwAsSameDomain: boolean;
+    readonly caseInsensitiveUsernames: boolean;
+  },
+): string {
+  const domains = uris
+    .map((u) => normalizeForDedup(u, options.treatWwwAsSameDomain))
+    .filter(Boolean)
+    .sort()
+    .join(',');
+
+  let user = username ?? '';
+  if (options.caseInsensitiveUsernames) {
+    user = user.toLowerCase();
+  }
+
+  return `${domains}:${user}`;
+}
+
+function normalizeForDedup(uri: string | null | undefined, stripWwwPrefix: boolean): string {
+  let domain = normalizeDomain(uri);
+  if (stripWwwPrefix) {
+    domain = stripWww(domain);
+  }
+  return domain;
 }

@@ -1,8 +1,11 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadConfig, ConfigError } from '../../config/loader.js';
 import { redactConfig } from '../../config/schema.js';
 import { configDiscoveryStack } from '../../config/paths.js';
 import { ExitCode } from '../../exit-codes.js';
+import { applyNoColor } from '../no-color.js';
 import { createLogger, createNoopLogger } from '../../adapters/logging.js';
 import { createSystemClock } from '../../adapters/clock.js';
 import { createPromptAdapter } from '../../ui/prompts.js';
@@ -246,9 +249,7 @@ function parseConfigFlags(argv: string[], sub: string): ParsedConfigArgs {
     process.exit(ExitCode.SUCCESS);
   }
 
-  if (parsed.values['no-color']) {
-    process.env['NO_COLOR'] = '1';
-  }
+  applyNoColor(parsed.values['no-color']);
 
   const verboseCount = Array.isArray(parsed.values.verbose)
     ? parsed.values.verbose.length
@@ -281,7 +282,5 @@ async function resolveConfigFilePath(cliConfigPath?: string): Promise<string> {
   });
   if (candidates.length > 0) return candidates[0]!.path;
 
-  const { homedir } = await import('node:os');
-  const { join } = await import('node:path');
   return join(homedir(), '.config', 'seiton', 'config.json');
 }

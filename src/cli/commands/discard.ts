@@ -1,5 +1,6 @@
 import { parseArgs } from 'node:util';
 import { ExitCode } from '../../exit-codes.js';
+import { applyNoColor } from '../no-color.js';
 import { loadConfig } from '../../config/loader.js';
 import { createLogger, createNoopLogger } from '../../adapters/logging.js';
 import { createSystemClock } from '../../adapters/clock.js';
@@ -51,9 +52,7 @@ export async function runDiscardCli(argv: string[]): Promise<void> {
     process.exit(ExitCode.SUCCESS);
   }
 
-  if (args.values['no-color']) {
-    process.env['NO_COLOR'] = '1';
-  }
+  applyNoColor(args.values['no-color']);
 
   const verboseCount = Array.isArray(args.values.verbose)
     ? args.values.verbose.length

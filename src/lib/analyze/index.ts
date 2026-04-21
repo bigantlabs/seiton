@@ -9,7 +9,7 @@ import {
   makeMissingFinding,
   makeFolderFinding,
 } from '../domain/finding.js';
-import { dedupKey } from '../dedup/key.js';
+import { dedupKey, dedupKeyMulti } from '../dedup/key.js';
 import { scorePassword, collectWeaknesses, type StrengthConfig } from '../strength/heuristic.js';
 import { classifyItem, type CustomRule } from '../folders/builtins.js';
 
@@ -54,17 +54,19 @@ function findDuplicates(
   config: AnalysisConfig['dedup'],
 ): Finding[] {
   const groups = new Map<string, BwItem[]>();
+  const dedupOpts = {
+    treatWwwAsSameDomain: config.treat_www_as_same_domain,
+    caseInsensitiveUsernames: config.case_insensitive_usernames,
+  };
   for (const item of items) {
     const uris = item.login?.uris ?? [];
-    const uri = config.compare_only_primary_uri
-      ? uris[0]?.uri
-      : uris.map((u) => u.uri).filter(Boolean).sort().join(',');
     const key = config.compare_only_primary_uri
-      ? dedupKey(uri, item.login?.username, {
-          treatWwwAsSameDomain: config.treat_www_as_same_domain,
-          caseInsensitiveUsernames: config.case_insensitive_usernames,
-        })
-      : `${(uri ?? '').toLowerCase()}:${config.case_insensitive_usernames ? (item.login?.username ?? '').toLowerCase() : (item.login?.username ?? '')}`;
+      ? dedupKey(uris[0]?.uri, item.login?.username, dedupOpts)
+      : dedupKeyMulti(
+          uris.map((u) => u.uri).filter((u): u is string => u !== null),
+          item.login?.username,
+          dedupOpts,
+        );
     if (!key || key === ':') continue;
     const group = groups.get(key);
     if (group) group.push(item);

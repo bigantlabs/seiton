@@ -1,9 +1,11 @@
 import { parseArgs } from 'node:util';
 import { ExitCode } from '../../exit-codes.js';
+import { applyNoColor } from '../no-color.js';
 import { VERSION } from '../../version.js';
 import { createLogger, createNoopLogger } from '../../adapters/logging.js';
 import { createSystemClock } from '../../adapters/clock.js';
 import { createPromptAdapter } from '../../ui/prompts.js';
+import { installSignalHandlers } from '../../core/signals.js';
 import { runDoctorChecks } from '../../commands/doctor.js';
 import type { DoctorOptions } from '../../commands/doctor.js';
 
@@ -80,9 +82,7 @@ export function parseDoctorArgs(argv: string[]): { help: boolean; opts: DoctorOp
     return { help: true, opts: {} };
   }
 
-  if (parsed.values['no-color']) {
-    process.env['NO_COLOR'] = '1';
-  }
+  applyNoColor(parsed.values['no-color']);
 
   const verboseCount = Array.isArray(parsed.values.verbose)
     ? parsed.values.verbose.length
@@ -104,6 +104,7 @@ export function parseDoctorArgs(argv: string[]): { help: boolean; opts: DoctorOp
       debug: parsed.values.debug as boolean | undefined,
       logger,
       bwSession: process.env['BW_SESSION'],
+      nodeVersion: process.versions.node,
     },
   };
 }
@@ -114,6 +115,8 @@ export async function runDoctor(argv: string[]): Promise<void> {
     process.stdout.write(`${DOCTOR_HELP}\n`);
     process.exit(ExitCode.SUCCESS);
   }
+
+  installSignalHandlers(opts.logger ?? createNoopLogger());
 
   try {
     await doctor(opts);

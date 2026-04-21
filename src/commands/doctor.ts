@@ -10,6 +10,7 @@ export interface DoctorOptions {
   debug?: boolean;
   logger?: Logger;
   bwSession?: string;
+  nodeVersion?: string;
 }
 
 export interface CheckResult {
@@ -23,7 +24,7 @@ export async function runDoctorChecks(opts: DoctorOptions = {}): Promise<CheckRe
   log.info('doctor command started', { version: VERSION });
 
   const results: CheckResult[] = [];
-  results.push(checkNodeVersion());
+  results.push(checkNodeVersion(opts.nodeVersion ?? process.versions.node));
   results.push(await checkBwBinary(log));
   results.push(checkBwSession(opts.bwSession));
   results.push(await checkConfig(opts, log));
@@ -31,12 +32,12 @@ export async function runDoctorChecks(opts: DoctorOptions = {}): Promise<CheckRe
   return results;
 }
 
-function checkNodeVersion(): CheckResult {
-  const major = parseInt(process.versions.node.split('.')[0]!, 10);
+function checkNodeVersion(nodeVersion: string): CheckResult {
+  const major = parseInt(nodeVersion.split('.')[0]!, 10);
   if (major >= 22) {
-    return { name: 'node', status: 'ok', detail: `v${process.versions.node}` };
+    return { name: 'node', status: 'ok', detail: `v${nodeVersion}` };
   }
-  return { name: 'node', status: 'fail', detail: `v${process.versions.node} (requires >=22)` };
+  return { name: 'node', status: 'fail', detail: `v${nodeVersion} (requires >=22)` };
 }
 
 async function checkBwBinary(logger?: Logger): Promise<CheckResult> {
@@ -54,7 +55,7 @@ async function checkBwBinary(logger?: Logger): Promise<CheckResult> {
 }
 
 function checkBwSession(session?: string): CheckResult {
-  const value = session ?? process.env['BW_SESSION'];
+  const value = session;
   if (value && value.length > 0) {
     return { name: 'session', status: 'ok', detail: 'BW_SESSION is set' };
   }

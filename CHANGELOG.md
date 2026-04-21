@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.3.7] - 2026-04-21
+
+### Added
+- Resolved all unresolved architectural drift observations in `.tekhton/DRIFT_LOG.md` by moving assessed-and-accepted items to Resolved and fixing CLAUDE.md layout drift:
 ## [0.3.6] - 2026-04-21
 
 ### Added
