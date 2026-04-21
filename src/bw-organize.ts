@@ -77,8 +77,7 @@ async function main(): Promise<void> {
   const command = firstPos?.value ?? 'audit';
   const commandArgs = firstPos ? extractCommandArgs(rawArgs, firstPos.index) : rawArgs;
 
-  if (command !== 'doctor' && command !== 'audit' && command !== 'config'
-    && command !== 'resume' && command !== 'report' && command !== 'discard') {
+  if (!COMMANDS.has(command)) {
     process.stderr.write(`seiton: unknown command "${command}"\nRun 'seiton --help' for usage.\n`);
     process.exit(ExitCode.USAGE);
   }
