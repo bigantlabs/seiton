@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import type { FsAdapter } from '../adapters/fs.js';
 import type { Clock } from '../adapters/clock.js';
@@ -22,7 +22,7 @@ export async function savePendingOps(
 ): Promise<void> {
   if (ops.length === 0) return;
 
-  const dir = pendingPath.substring(0, pendingPath.lastIndexOf('/'));
+  const dir = dirname(pendingPath);
   await fs.ensureDir(dir);
 
   const queue = makePendingQueue(ops, clock.isoNow());

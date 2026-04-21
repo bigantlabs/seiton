@@ -16,6 +16,7 @@ export interface ReviewResult {
   ops: PendingOp[];
   reviewed: number;
   skipped: number;
+  cancelled: boolean;
 }
 
 export function collectOpsFromFindings(
@@ -69,7 +70,7 @@ export function collectOpsFromFindings(
     }
   }
 
-  return { ops, reviewed, skipped };
+  return { ops, reviewed, skipped, cancelled: false };
 }
 
 export interface InteractiveReviewOptions extends ReviewOptions {
@@ -104,7 +105,7 @@ export async function interactiveReview(
     categoryCounts.set(finding.category, count + 1);
     const action = await presentFinding(finding, prompt, maskChar, foldersNeeded);
     if (action === 'cancel') {
-      return { ops, reviewed, skipped: skipped + (findings.length - reviewed - skipped) };
+      return { ops, reviewed, skipped: skipped + (findings.length - reviewed - skipped), cancelled: true };
     }
     reviewed++;
 
@@ -112,7 +113,7 @@ export async function interactiveReview(
     for (const op of action) ops.push(op);
   }
 
-  return { ops, reviewed, skipped };
+  return { ops, reviewed, skipped, cancelled: false };
 }
 
 type FindingAction = PendingOp[] | 'skip' | 'cancel';

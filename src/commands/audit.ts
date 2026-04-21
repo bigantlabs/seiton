@@ -128,12 +128,11 @@ async function executeAuditPipeline(
     dryRun,
   });
 
-  setPendingOps(reviewResult.ops);
-
   logger.info('audit: review complete', {
     opsCount: reviewResult.ops.length,
     reviewed: reviewResult.reviewed,
     skipped: reviewResult.skipped,
+    cancelled: reviewResult.cancelled,
   });
 
   if (dryRun) {
@@ -142,11 +141,27 @@ async function executeAuditPipeline(
     return proc.exit(ExitCode.SUCCESS);
   }
 
+  if (reviewResult.cancelled) {
+    setPendingOps(reviewResult.ops);
+    if (reviewResult.ops.length > 0) {
+      await savePendingOps(reviewResult.ops, pendingPath, fs, clock, logger);
+    }
+    prompt.cancelled('Review cancelled.');
+    prompt.outro(
+      reviewResult.ops.length > 0
+        ? 'Audit cancelled — partial ops saved for resumption.'
+        : 'Audit cancelled — no ops to save.',
+    );
+    return proc.exit(ExitCode.GENERAL_ERROR);
+  }
+
   if (reviewResult.ops.length === 0) {
     prompt.logSuccess('No findings require action. Vault is clean.');
     prompt.outro('Audit complete — nothing to do.');
     return proc.exit(ExitCode.SUCCESS);
   }
+
+  setPendingOps(reviewResult.ops);
 
   logger.info('audit: applying operations', { count: reviewResult.ops.length });
   const applySpin = prompt.startSpinner(`Applying ${reviewResult.ops.length} operations…`);
@@ -187,7 +202,7 @@ interface RunReviewOpts {
 async function runReview(
   findings: readonly Finding[],
   opts: RunReviewOpts,
-): Promise<{ ops: PendingOp[]; reviewed: number; skipped: number }> {
+): Promise<{ ops: PendingOp[]; reviewed: number; skipped: number; cancelled: boolean }> {
   if (opts.dryRun) {
     return collectOpsFromFindings(findings, {
       skipCategories: opts.skipCategories,
