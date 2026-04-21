@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+- **Clack UI layer** (`src/ui/prompts.ts`): Thin wrapper around `@clack/prompts` providing `intro`, `outro`, `select`, `confirm`, `multiselect`, `text`, `spinner`, and log methods. Falls back to plain readline prompts when `ui.prompt_style: "plain"` is configured. (M11)
+- **Password masking** (`src/ui/mask.ts`): `maskPassword` and `maskPartial` helpers respecting `ui.mask_character` config.
+- **Interactive review loop** (`src/ui/review-loop.ts`): `interactiveReview` function walks findings one by one using clack prompts, presenting duplicates as keep-one-delete-rest, folder suggestions as accept/skip, and weak/missing/reuse as acknowledge.
+- `@clack/prompts` runtime dependency for interactive terminal UI (spinners, select, confirm, intro/outro banners).
+
+### Changed
+- `seiton audit` now displays clack-styled intro/outro banners, spinners during fetch/analyze/apply, and per-finding interactive prompts.
+- `seiton doctor` now displays clack-styled intro/outro banners and per-check success/error log messages.
+- Dry-run mode continues to use the non-interactive batch review path (no prompts shown).
+
 ## [0.3.1] - 2026-04-20
 
 ### Added
