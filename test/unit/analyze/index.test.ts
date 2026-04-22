@@ -331,6 +331,93 @@ describe('analyzeItems', () => {
     });
   });
 
+  describe('existing folders handling', () => {
+    it('sets existingFolderId to null when no existing folder matches', () => {
+      const item = makeItem({
+        id: 'gh',
+        folderId: null,
+        name: 'GitHub',
+        login: { uris: [{ match: null, uri: 'https://github.com' }], username: 'u', password: 'Str0ng!Passw0rd', totp: null },
+      });
+      const config = makeConfig({
+        folders: { preserve_existing: true, enabled_categories: ['Development'], custom_rules: [] },
+      });
+      const findings = analyzeItems([item], config, []);
+      const folders = findings.filter((f) => f.category === 'folders');
+      assert.equal(folders.length, 1);
+      if (folders[0]!.category === 'folders') {
+        assert.equal(folders[0].existingFolderId, null);
+      }
+    });
+
+    it('resolves existingFolderId when an existing folder name matches the suggestion', () => {
+      const item = makeItem({
+        id: 'gh',
+        folderId: null,
+        name: 'GitHub',
+        login: { uris: [{ match: null, uri: 'https://github.com' }], username: 'u', password: 'Str0ng!Passw0rd', totp: null },
+      });
+      const config = makeConfig({
+        folders: { preserve_existing: true, enabled_categories: ['Development'], custom_rules: [] },
+      });
+      const findings = analyzeItems(
+        [item],
+        config,
+        [{ id: 'dev-folder-uuid', name: 'Development' }],
+      );
+      const folders = findings.filter((f) => f.category === 'folders');
+      assert.equal(folders.length, 1);
+      if (folders[0]!.category === 'folders') {
+        assert.equal(folders[0].existingFolderId, 'dev-folder-uuid');
+      }
+    });
+
+    it('folder name matching is case-sensitive', () => {
+      const item = makeItem({
+        id: 'gh',
+        folderId: null,
+        name: 'GitHub',
+        login: { uris: [{ match: null, uri: 'https://github.com' }], username: 'u', password: 'Str0ng!Passw0rd', totp: null },
+      });
+      const config = makeConfig({
+        folders: { preserve_existing: true, enabled_categories: ['Development'], custom_rules: [] },
+      });
+      const findings = analyzeItems(
+        [item],
+        config,
+        [{ id: 'dev-lower-uuid', name: 'development' }],
+      );
+      const folders = findings.filter((f) => f.category === 'folders');
+      if (folders[0]!.category === 'folders') {
+        assert.equal(folders[0].existingFolderId, null);
+      }
+    });
+
+    it('picks the first matching folder id when duplicates exist in the vault', () => {
+      const item = makeItem({
+        id: 'gh',
+        folderId: null,
+        name: 'GitHub',
+        login: { uris: [{ match: null, uri: 'https://github.com' }], username: 'u', password: 'Str0ng!Passw0rd', totp: null },
+      });
+      const config = makeConfig({
+        folders: { preserve_existing: true, enabled_categories: ['Development'], custom_rules: [] },
+      });
+      const findings = analyzeItems(
+        [item],
+        config,
+        [
+          { id: 'first-uuid', name: 'Development' },
+          { id: 'second-uuid', name: 'Development' },
+        ],
+      );
+      const folders = findings.filter((f) => f.category === 'folders');
+      if (folders[0]!.category === 'folders') {
+        assert.equal(folders[0].existingFolderId, 'first-uuid');
+      }
+    });
+  });
+
   describe('determinism', () => {
     it('produces identical findings for identical input', () => {
       const items = [

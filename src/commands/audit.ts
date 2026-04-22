@@ -110,7 +110,7 @@ async function executeAuditPipeline(
     strength: config.strength,
     dedup: config.dedup,
     folders: config.folders,
-  });
+  }, foldersResult.data);
   analyzeSpin.stop(`Found ${findings.length} findings`);
 
   const skipCategories = [

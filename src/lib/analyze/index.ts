@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { BwItem } from '../domain/types.js';
+import type { BwItem, BwFolder } from '../domain/types.js';
 import { ItemType } from '../domain/types.js';
 import type { Finding } from '../domain/finding.js';
 import {
@@ -37,6 +37,7 @@ export interface AnalysisConfig {
 export function analyzeItems(
   items: readonly BwItem[],
   config: AnalysisConfig,
+  existingFolders: readonly BwFolder[] = [],
 ): Finding[] {
   const logins = items.filter((i) => i.type === ItemType.LOGIN);
 
@@ -45,7 +46,7 @@ export function analyzeItems(
     ...findReusedPasswords(logins),
     ...findWeakPasswords(logins, config.strength),
     ...findMissingFields(logins),
-    ...findFolderSuggestions(logins, config.folders),
+    ...findFolderSuggestions(logins, config.folders, existingFolders),
   ];
 }
 
@@ -146,7 +147,13 @@ function findMissingFields(items: readonly BwItem[]): Finding[] {
 function findFolderSuggestions(
   items: readonly BwItem[],
   config: AnalysisConfig['folders'],
+  existingFolders: readonly BwFolder[],
 ): Finding[] {
+  const existingByName = new Map<string, string>();
+  for (const f of existingFolders) {
+    if (!existingByName.has(f.name)) existingByName.set(f.name, f.id);
+  }
+
   const findings: Finding[] = [];
   for (const item of items) {
     if (config.preserve_existing && item.folderId) continue;
@@ -160,7 +167,7 @@ function findFolderSuggestions(
       config.enabled_categories,
     );
     if (folder) {
-      findings.push(makeFolderFinding(item, folder));
+      findings.push(makeFolderFinding(item, folder, existingByName.get(folder) ?? null));
     }
   }
   return findings;

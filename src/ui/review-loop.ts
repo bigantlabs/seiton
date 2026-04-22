@@ -60,11 +60,11 @@ export function collectOpsFromFindings(
       case 'missing':
         break;
       case 'folders': {
-        if (!foldersNeeded.has(finding.suggestedFolder)) {
+        if (!finding.existingFolderId && !foldersNeeded.has(finding.suggestedFolder)) {
           foldersNeeded.add(finding.suggestedFolder);
           ops.push(makeCreateFolderOp(finding.suggestedFolder));
         }
-        ops.push(makeAssignFolderOp(finding.item.id, null, finding.suggestedFolder));
+        ops.push(makeAssignFolderOp(finding.item.id, finding.existingFolderId, finding.suggestedFolder));
         break;
       }
     }
@@ -221,11 +221,11 @@ async function presentFolder(
   if (action === 'skip') return 'skip';
 
   const ops: PendingOp[] = [];
-  if (!foldersNeeded.has(finding.suggestedFolder)) {
+  if (!finding.existingFolderId && !foldersNeeded.has(finding.suggestedFolder)) {
     foldersNeeded.add(finding.suggestedFolder);
     ops.push(makeCreateFolderOp(finding.suggestedFolder));
   }
-  ops.push(makeAssignFolderOp(finding.item.id, null, finding.suggestedFolder));
+  ops.push(makeAssignFolderOp(finding.item.id, finding.existingFolderId, finding.suggestedFolder));
   return ops;
 }
 

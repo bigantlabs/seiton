@@ -39,7 +39,7 @@ export async function runReport(opts: ReportOptions): Promise<ReportResult> {
     strength: config.strength,
     dedup: config.dedup,
     folders: config.folders,
-  });
+  }, foldersResult.data);
 
   const findings = filterFindings(allFindings, skipCategories, limitPerCategory);
 
