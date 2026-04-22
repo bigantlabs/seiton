@@ -120,14 +120,16 @@ function createPlainAdapter(): PromptAdapter {
       const rl = createInterface({ input: process.stdin, output: process.stdout });
       try {
         const lines = options.map((o, i) => `  ${i + 1}) ${o.label}${o.hint ? ` (${o.hint})` : ''}`);
-        const prompt = `${message}\n${lines.join('\n')}\n> `;
-        const answer = await new Promise<string>((resolve, reject) => {
-          rl.question(prompt, resolve);
-          rl.once('close', () => reject(new Error('cancelled')));
-        });
-        const idx = parseInt(answer, 10) - 1;
-        if (idx >= 0 && idx < options.length) return options[idx]!.value;
-        return null;
+        process.stdout.write(`${message}\n${lines.join('\n')}\n`);
+        while (true) {
+          const answer = await new Promise<string>((resolve, reject) => {
+            rl.question('> ', resolve);
+            rl.once('close', () => reject(new Error('cancelled')));
+          });
+          const idx = parseInt(answer, 10) - 1;
+          if (idx >= 0 && idx < options.length) return options[idx]!.value;
+          process.stderr.write(`[warn] Invalid selection. Enter a number between 1 and ${options.length}.\n`);
+        }
       } catch { return null; }
       finally { rl.close(); }
     },

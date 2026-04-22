@@ -144,7 +144,10 @@ async function executeAuditPipeline(
   if (reviewResult.cancelled) {
     setPendingOps(reviewResult.ops);
     if (reviewResult.ops.length > 0) {
-      await savePendingOps(reviewResult.ops, pendingPath, fs, clock, logger);
+      const saved = await savePendingOps(reviewResult.ops, pendingPath, fs, clock, logger);
+      if (!saved) {
+        prompt.logWarning(`Could not save pending queue to ${pendingPath} — see log for recovery data.`);
+      }
     }
     prompt.cancelled('Review cancelled.');
     prompt.outro(
@@ -174,9 +177,13 @@ async function executeAuditPipeline(
   if (applyResult.failed.length > 0 || applyResult.remaining.length > 0) {
     applySpin.error(`${applyResult.applied} applied, ${applyResult.failed.length} failed, ${applyResult.remaining.length} remaining`);
     const persist = [...applyResult.failed, ...applyResult.remaining];
-    await savePendingOps(persist, pendingPath, fs, clock, logger);
+    const saved = await savePendingOps(persist, pendingPath, fs, clock, logger);
     setPendingOps([]);
-    prompt.outro('Audit finished with errors. Remaining ops saved to pending queue.');
+    prompt.outro(
+      saved
+        ? 'Audit finished with errors. Remaining ops saved to pending queue.'
+        : 'Audit finished with errors. Failed to persist remaining ops — see log for recovery data.',
+    );
     return proc.exit(ExitCode.GENERAL_ERROR);
   }
 

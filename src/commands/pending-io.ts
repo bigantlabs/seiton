@@ -20,14 +20,25 @@ export async function savePendingOps(
   fs: FsAdapter,
   clock: Clock,
   logger?: Logger,
-): Promise<void> {
-  if (ops.length === 0) return;
-
-  const dir = dirname(pendingPath);
-  await fs.ensureDir(dir);
+): Promise<boolean> {
+  if (ops.length === 0) return true;
 
   const queue = makePendingQueue(ops, clock.isoNow());
-  const content = JSON.stringify(queue, null, 2) + '\n';
-  await fs.writeAtomic(pendingPath, content, 0o600);
+  const content = `${JSON.stringify(queue, null, 2)}\n`;
+
+  try {
+    await fs.ensureDir(dirname(pendingPath));
+    await fs.writeAtomic(pendingPath, content, 0o600);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger?.error('pending: failed to save ops — recover from this log entry', {
+      path: pendingPath,
+      error: message,
+      ops,
+    });
+    return false;
+  }
+
   logger?.info('pending: saved ops', { count: ops.length, path: pendingPath });
+  return true;
 }
