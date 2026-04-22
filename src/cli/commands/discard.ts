@@ -77,6 +77,11 @@ export async function runDiscardCli(argv: string[]): Promise<void> {
   const result = await discardPending(config.paths.pending_queue, fsAdapter, log);
 
   if (!result.ok) {
+    if (result.code === 'REMOVE_FAILED') {
+      prompt.logError(result.message);
+      prompt.outro('Discard failed.');
+      process.exit(ExitCode.CANT_CREATE);
+    }
     prompt.logInfo(result.message);
     prompt.outro('Nothing to discard.');
     process.exit(ExitCode.SUCCESS);

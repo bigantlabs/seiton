@@ -123,8 +123,12 @@ function createPlainAdapter(): PromptAdapter {
         process.stdout.write(`${message}\n${lines.join('\n')}\n`);
         while (true) {
           const answer = await new Promise<string>((resolve, reject) => {
-            rl.question('> ', resolve);
-            rl.once('close', () => reject(new Error('cancelled')));
+            const onClose = () => reject(new Error('cancelled'));
+            rl.once('close', onClose);
+            rl.question('> ', (ans) => {
+              rl.removeListener('close', onClose);
+              resolve(ans);
+            });
           });
           const idx = parseInt(answer, 10) - 1;
           if (idx >= 0 && idx < options.length) return options[idx]!.value;
