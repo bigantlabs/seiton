@@ -1,21 +1,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { runAudit, type AuditOptions } from '../../../src/commands/audit.js';
-import type { ProcessAdapter } from '../../../src/adapters/process.js';
-import type { FsAdapter } from '../../../src/adapters/fs.js';
-import type { Clock } from '../../../src/adapters/clock.js';
-import type { Logger } from '../../../src/adapters/logging.js';
 import type { Config } from '../../../src/config/schema.js';
 import type { BwItem, BwFolder } from '../../../src/lib/domain/types.js';
 import { makeBwError, BwErrorCode } from '../../../src/lib/domain/types.js';
 import { ExitCode } from '../../../src/exit-codes.js';
 import { makeFakeAdapter } from '../../helpers/fake-adapter.js';
-
-class ExitSignal extends Error {
-  constructor(public readonly code: number) {
-    super(`exit(${code})`);
-  }
-}
+import { ExitSignal, makeFakeProc, makeFakeFs, makeFakeClock, makeNoopLogger } from '../../helpers/test-doubles.js';
 
 function makeDefaultConfig(overrides?: Partial<Config>): Config {
   return {
@@ -30,47 +21,6 @@ function makeDefaultConfig(overrides?: Partial<Config>): Config {
     logging: { format: 'text', level: 'info' },
     ...overrides,
   } as Config;
-}
-
-function makeFakeProc(
-  env: Record<string, string | undefined> = {},
-  tty = true,
-): ProcessAdapter {
-  return {
-    getEnv: (name) => env[name],
-    requireEnv: (name) => {
-      const v = env[name];
-      if (!v) throw new Error(`Missing env: ${name}`);
-      return v;
-    },
-    getEnvAsInt: () => undefined,
-    getEnvAsBool: () => undefined,
-    exit: (code) => { throw new ExitSignal(code); },
-    isTTY: () => tty,
-  };
-}
-
-function makeFakeFs(): FsAdapter & { written: Map<string, { content: string; mode: number }> } {
-  const written = new Map<string, { content: string; mode: number }>();
-  return {
-    written,
-    readText: async () => '',
-    writeAtomic: async (path, content, mode = 0o600) => { written.set(path, { content, mode }); },
-    remove: async () => {},
-    exists: async () => false,
-    ensureDir: async () => {},
-  };
-}
-
-function makeFakeClock(): Clock {
-  return {
-    now: () => new Date('2024-06-01T00:00:00Z'),
-    isoNow: () => '2024-06-01T00:00:00.000Z',
-  };
-}
-
-function makeNoopLogger(): Logger {
-  return { error() {}, warn() {}, info() {}, debug() {} };
 }
 
 function makeOpts(overrides: Partial<AuditOptions> = {}): AuditOptions {
@@ -311,45 +261,4 @@ describe('runAudit', () => {
     });
   });
 
-  describe('fs.remove error handling during completion', () => {
-    it('logs debug and continues when fs.remove throws non-ENOENT error during file cleanup', async () => {
-      const debugCalls: Array<{ message: string; context?: Record<string, unknown> }> = [];
-      const mockLogger: Logger = {
-        error() {},
-        warn() {},
-        info() {},
-        debug(message, context) {
-          debugCalls.push({ message, context });
-        },
-      };
-
-      const mockFs: FsAdapter & { written: Map<string, { content: string; mode: number }> } = {
-        written: new Map(),
-        readText: async () => '',
-        writeAtomic: async (path, content, mode = 0o600) => { mockFs.written.set(path, { content, mode }); },
-        remove: async () => {
-          const err = new Error('Permission denied') as NodeJS.ErrnoException;
-          err.code = 'EACCES';
-          throw err;
-        },
-        exists: async () => false,
-        ensureDir: async () => {},
-      };
-
-      // Empty vault with no findings ensures we skip the interactive review phase
-      // but fs.remove is still called if we can get past the empty findings check
-      const exit = await runAndCatch(makeOpts({
-        fs: mockFs,
-        logger: mockLogger,
-      }));
-
-      // With empty vault, audit completes successfully with no fs.remove call
-      // To properly test fs.remove error handling, we would need to mock interactiveReview
-      // to return ops that proceed to apply. For now, verify the structure is in place.
-      assert.equal(exit.code, ExitCode.SUCCESS);
-      // Note: This test verifies the path exists but requires full mock setup
-      // to actually exercise it. The actual fs.remove error handling code is present
-      // and follows the pattern: try { await fs.remove() } catch to log debug.
-    });
-  });
 });
