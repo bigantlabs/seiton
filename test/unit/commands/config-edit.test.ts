@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdtemp, rm, readFile, mkdir, chmod } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { configEdit } from '../../../src/commands/config-edit.js';
 
@@ -113,6 +113,31 @@ describe('configEdit', () => {
     assert.equal(result.ok, false);
     if (!result.ok) {
       assert.ok(result.error.includes('Config is invalid'));
+    }
+  });
+
+  it('propagates non-ENOENT readFile errors from ensureConfigFileExists', async () => {
+    const configPath = join(tempDir, 'config.json');
+    process.env['EDITOR'] = 'true';
+    // Simulate a permission denied error (EACCES) by making the parent directory unreadable
+    const dir = dirname(configPath);
+    await mkdir(dir, { recursive: true });
+    await chmod(dir, 0o000);
+
+    try {
+      // The error should be thrown from ensureConfigFileExists
+      await assert.rejects(
+        async () => {
+          await configEdit(configPath);
+        },
+        (err: unknown) => {
+          // Verify it's an EACCES error
+          return (err as { code?: string } | null)?.code === 'EACCES';
+        },
+      );
+    } finally {
+      // Restore permissions for cleanup
+      await chmod(dir, 0o755);
     }
   });
 });

@@ -54,6 +54,8 @@ async function ensureConfigFileExists(configFilePath: string): Promise<void> {
       await mkdir(dir, { recursive: true });
       const template = JSON.stringify({ version: 1 }, null, 2) + '\n';
       await writeFile(configFilePath, template, { mode: 0o600 });
+    } else {
+      throw err;
     }
   }
 }

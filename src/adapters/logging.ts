@@ -31,7 +31,7 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
   debug: 3,
 };
 
-const UNSAFE_PATTERNS = /^(SEITON_|BW_SESSION$|.*_TOKEN$|.*_SECRET$|.*_PASSWORD$|.*_KEY$)/i;
+const UNSAFE_PATTERNS = /^(SEITON_|BW_SESSION$|.*_TOKEN$|.*_SECRET$|.*_PASSWORD$|.*_KEY$|.*_CREDENTIAL.*|.*_AUTH$|.*API_KEY.*|.*PASSPHRASE$)/i;
 
 const SAFE_ENV_KEYS = new Set([
   'SEITON_CONFIG',

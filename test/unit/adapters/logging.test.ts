@@ -118,6 +118,54 @@ describe('logging adapter', () => {
       const result = sanitizeContext(ctx);
       assert.deepEqual(result['tags'], ['a', 'b', 'c']);
     });
+
+    it('redacts keys matching *_CREDENTIAL* pattern', () => {
+      const ctx = {
+        MY_CREDENTIAL: 'secret123',
+        API_CREDENTIAL_KEY: 'key456',
+      };
+      const result = sanitizeContext(ctx);
+      assert.equal(result['MY_CREDENTIAL'], '[REDACTED]');
+      assert.equal(result['API_CREDENTIAL_KEY'], '[REDACTED]');
+    });
+
+    it('redacts keys matching *_AUTH$ pattern', () => {
+      const ctx = {
+        USER_AUTH: 'token123',
+        OAUTH_AUTH: 'bearer456',
+        API_AUTH: 'secret789',
+      };
+      const result = sanitizeContext(ctx);
+      assert.equal(result['USER_AUTH'], '[REDACTED]');
+      assert.equal(result['OAUTH_AUTH'], '[REDACTED]');
+      assert.equal(result['API_AUTH'], '[REDACTED]');
+    });
+
+    it('redacts keys matching *API_KEY* pattern', () => {
+      const ctx = {
+        API_KEY: 'pk_live_123',
+        MY_API_KEY: 'key456',
+        API_KEY_SECRET: 'secret789',
+        STRIPE_API_KEY: 'sk_test_abc',
+      };
+      const result = sanitizeContext(ctx);
+      assert.equal(result['API_KEY'], '[REDACTED]');
+      assert.equal(result['MY_API_KEY'], '[REDACTED]');
+      assert.equal(result['API_KEY_SECRET'], '[REDACTED]');
+      assert.equal(result['STRIPE_API_KEY'], '[REDACTED]');
+    });
+
+    it('redacts keys matching *PASSPHRASE$ pattern', () => {
+      const ctx = {
+        PASSPHRASE: 'secret123',
+        PRIVATE_KEY_PASSPHRASE: 'pass456',
+        SSH_KEY_PASSPHRASE: 'phrase789',
+      };
+      const result = sanitizeContext(ctx);
+      assert.equal(result['PASSPHRASE'], '[REDACTED]');
+      assert.equal(result['PRIVATE_KEY_PASSPHRASE'], '[REDACTED]');
+      assert.equal(result['SSH_KEY_PASSPHRASE'], '[REDACTED]');
+    });
   });
 
   describe('createLogger', () => {

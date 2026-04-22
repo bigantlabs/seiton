@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.3.9] - 2026-04-21
+
+### Added
+- **Note 1** (audit.ts bare catch): Narrowed bare `catch` at `src/commands/audit.ts:184` to only ignore ENOENT/NOT_FOUND errors. Non-matching errors are now logged via `logger.debug('audit: pending file removal failed', ...)`. Satisfies Non-Negotiable Rule #10.
+
+### Fixed
+- Narrowed bare `catch` in `src/commands/audit.ts` pending-file removal to only ignore ENOENT/NOT_FOUND; non-ENOENT errors now logged via `logger.debug`.
+- `ensureConfigFileExists` in `src/commands/config-edit.ts` now re-throws non-ENOENT errors instead of silently swallowing them.
+- Expanded `UNSAFE_PATTERNS` in `src/adapters/logging.ts` to redact `*_CREDENTIAL*`, `*_AUTH`, `*API_KEY*`, and `*PASSPHRASE` context keys (defense-in-depth).
+
 ## [0.3.8] - 2026-04-21
 
 ### Added

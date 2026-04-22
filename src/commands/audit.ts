@@ -181,7 +181,12 @@ async function executeAuditPipeline(
 
   try {
     await fs.remove(pendingPath);
-  } catch { /* stale file may not exist */ }
+  } catch (err: unknown) {
+    const code = (err as { code?: string } | null)?.code;
+    if (code !== 'ENOENT' && code !== 'NOT_FOUND') {
+      logger.debug('audit: pending file removal failed', { error: err instanceof Error ? err.message : String(err) });
+    }
+  }
 
   logger.info('audit: syncing vault');
   const syncResult = await bw.sync(session);
