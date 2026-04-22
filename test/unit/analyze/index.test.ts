@@ -475,7 +475,7 @@ describe('analyzeItems', () => {
       ];
       const findings = analyzeItems(items, makeConfig());
       const missing = findings.filter((f) => f.category === 'missing');
-      assert.equal(missing.length, 0, 'item with non-empty uris array should not flag missing uri');
+      assert.equal(missing.length, 1, 'item with only null URIs should flag missing uri');
     });
 
     it('does not group null-URI items as duplicates when they have different usernames', () => {

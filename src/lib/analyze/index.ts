@@ -94,9 +94,11 @@ function findReusedPasswords(items: readonly BwItem[]): Finding[] {
   }
 
   const findings: Finding[] = [];
-  for (const [hash, group] of groups) {
+  let groupCounter = 0;
+  for (const [, group] of groups) {
     if (group.length > 1) {
-      findings.push(makeReuseFinding(group, hash));
+      groupCounter++;
+      findings.push(makeReuseFinding(group, `reuse-group-${groupCounter}`));
     }
   }
   return findings;
@@ -133,7 +135,7 @@ function findMissingFields(items: readonly BwItem[]): Finding[] {
     const missing: string[] = [];
     if (!item.login?.password) missing.push('password');
     if (!item.login?.username) missing.push('username');
-    if (!item.login?.uris?.length) missing.push('uri');
+    if (!item.login?.uris?.some(u => u.uri)) missing.push('uri');
     if (missing.length > 0) {
       findings.push(makeMissingFinding(item, missing));
     }
