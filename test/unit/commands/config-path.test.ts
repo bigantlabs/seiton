@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile, chmod } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { configPath } from '../../../src/commands/config-path.js';
@@ -21,34 +21,25 @@ describe('configPath', () => {
         },
       };
 
-      // Create a file and make it unreadable to trigger a non-ENOENT error (EACCES)
-      const testPath = join(tempDir, 'unreadable.json');
-      await writeFile(testPath, '{}');
-      await chmod(testPath, 0o000);
+      const dirPath = join(tempDir, 'isADirectory');
+      await mkdir(dirPath);
 
-      // Use cliConfigPath to set hardFail=true with the unreadable file
       await configPath(
         {
-          cliConfigPath: testPath,
+          cliConfigPath: dirPath,
         },
         mockLogger,
       );
 
-      // The function should log the permission error as a debug message
-      // and then return the path (because hardFail=true)
       const debugEntry = debugLogs.find(log => log.message.includes('non-ENOENT'));
       assert.ok(debugEntry, 'should log debug message for non-ENOENT error');
       assert.ok(
-        debugEntry?.context?.error?.toString().includes('EACCES') ||
-        debugEntry?.context?.error?.toString().includes('Permission'),
-        'should include permission error in debug context',
+        debugEntry?.context?.error?.toString().includes('EISDIR') ||
+        debugEntry?.context?.error?.toString().includes('directory'),
+        'should include EISDIR error in debug context',
       );
     } finally {
       if (tempDir) {
-        // Restore permissions before cleanup
-        try {
-          await chmod(join(tempDir, 'unreadable.json'), 0o644).catch(() => {});
-        } catch { /* ignore */ }
         await rm(tempDir, { recursive: true, force: true });
       }
     }
