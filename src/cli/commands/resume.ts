@@ -11,6 +11,7 @@ import { createPromptAdapter } from '../../ui/prompts.js';
 import { VERSION } from '../../version.js';
 import { installSignalHandlers } from '../../core/signals.js';
 import { loadPendingOps, resumeApply } from '../../commands/resume.js';
+import type { PendingOp } from '../../lib/domain/pending.js';
 
 const RESUME_HELP = `seiton resume — resume a previously interrupted audit session
 
@@ -117,7 +118,6 @@ export async function runResumeCli(argv: string[]): Promise<void> {
 
   const applySpin = prompt.startSpinner(`Applying ${loaded.ops.length} operations…`);
   const result = await resumeApply(loaded.ops, loaded.path, {
-    pendingQueuePath: config.paths.pending_queue,
     session,
     bw: bwAdapter,
     fs: fsAdapter,
@@ -125,8 +125,8 @@ export async function runResumeCli(argv: string[]): Promise<void> {
     logger: log,
   });
 
-  if (result.failed.length > 0) {
-    applySpin.error(`${result.applied} applied, ${result.failed.length} failed`);
+  if (result.failed.length > 0 || result.remaining.length > 0) {
+    applySpin.error(`${result.applied} applied, ${result.failed.length} failed, ${result.remaining.length} remaining`);
     prompt.outro('Resume finished with errors. Remaining ops saved.');
     process.exit(ExitCode.GENERAL_ERROR);
   }
@@ -136,11 +136,10 @@ export async function runResumeCli(argv: string[]): Promise<void> {
   process.exit(ExitCode.SUCCESS);
 }
 
-function formatOp(op: { kind: string; itemId?: string; folderName?: string }): string {
+function formatOp(op: PendingOp): string {
   switch (op.kind) {
     case 'delete_item': return `Delete item ${op.itemId}`;
     case 'assign_folder': return `Assign "${op.folderName}" to ${op.itemId}`;
     case 'create_folder': return `Create folder "${op.folderName}"`;
-    default: return `${op.kind}`;
   }
 }

@@ -12,7 +12,6 @@ export type ResumeResult =
   | { ok: false; code: 'NO_PENDING' | 'INVALID_PENDING' | 'VERSION_MISMATCH'; message: string };
 
 export interface ResumeOptions {
-  pendingQueuePath: string | null | undefined;
   session: string;
   bw: BwAdapter;
   fs: FsAdapter;

@@ -179,6 +179,10 @@ async function executeAuditPipeline(
   applySpin.stop(`${applyResult.applied} operations applied`);
   setPendingOps([]);
 
+  try {
+    await fs.remove(pendingPath);
+  } catch { /* stale file may not exist */ }
+
   logger.info('audit: syncing vault');
   const syncResult = await bw.sync(session);
   if (!syncResult.ok) {

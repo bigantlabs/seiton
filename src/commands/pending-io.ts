@@ -8,8 +8,9 @@ import { makePendingQueue } from '../lib/domain/pending.js';
 
 export function resolvePendingPath(configPath?: string | null): string {
   if (configPath) return configPath;
-  const stateHome = process.env['XDG_STATE_HOME']
-    ?? join(process.env['HOME'] ?? homedir(), '.local', 'state');
+  const xdgState = process.env['XDG_STATE_HOME']?.trim();
+  const home = process.env['HOME']?.trim();
+  const stateHome = xdgState || join(home || homedir(), '.local', 'state');
   return join(stateHome, 'seiton', 'pending.json');
 }
 
