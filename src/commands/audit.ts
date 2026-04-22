@@ -184,7 +184,11 @@ async function executeAuditPipeline(
   } catch (err: unknown) {
     const code = (err as { code?: string } | null)?.code;
     if (code !== 'ENOENT' && code !== 'NOT_FOUND') {
-      logger.debug('audit: pending file removal failed', { error: err instanceof Error ? err.message : String(err) });
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn('audit: failed to remove pending file after successful apply', { path: pendingPath, error: message });
+      prompt.logWarning(
+        `Could not remove pending queue at ${pendingPath}. Delete it manually before running "seiton resume" to avoid re-applying completed operations.`,
+      );
     }
   }
 
