@@ -70,7 +70,15 @@ export async function resumeApply(
     const persist = [...result.failed, ...result.remaining];
     await savePendingOps(persist, pendingPath, fs, clock, logger);
   } else {
-    await fs.remove(pendingPath);
+    try {
+      await fs.remove(pendingPath);
+    } catch (err: unknown) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code !== 'ENOENT' && code !== 'NOT_FOUND') {
+        const message = err instanceof Error ? err.message : String(err);
+        logger?.warn('resume: failed to remove pending file after successful apply', { path: pendingPath, error: message });
+      }
+    }
   }
 
   return result;

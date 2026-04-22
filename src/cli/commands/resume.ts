@@ -97,9 +97,14 @@ export async function runResumeCli(argv: string[]): Promise<void> {
 
   const loaded = await loadPendingOps(config.paths.pending_queue, log);
   if (!loaded.ok) {
-    prompt.logWarning(loaded.message);
-    prompt.outro('Nothing to resume.');
-    process.exit(ExitCode.SUCCESS);
+    if (loaded.code === 'NO_PENDING') {
+      prompt.logWarning(loaded.message);
+      prompt.outro('Nothing to resume.');
+      process.exit(ExitCode.SUCCESS);
+    }
+    prompt.logError(loaded.message);
+    prompt.outro('Cannot resume — pending queue is corrupt or incompatible.');
+    process.exit(ExitCode.GENERAL_ERROR);
   }
 
   prompt.logInfo(`${loaded.ops.length} pending operation(s) found.`);
