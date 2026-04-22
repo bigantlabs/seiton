@@ -142,6 +142,11 @@ export async function runResumeCli(argv: string[]): Promise<void> {
   }
 
   applySpin.stop(`${result.applied} operations applied`);
+  if (result.pendingCleanupFailed) {
+    prompt.logWarning(
+      `Could not remove pending queue at ${loaded.path}. Delete it manually before running "seiton resume" again to avoid re-applying completed operations.`,
+    );
+  }
   prompt.outro('Resume complete. All pending operations applied.');
   process.exit(ExitCode.SUCCESS);
 }

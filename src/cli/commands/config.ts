@@ -92,7 +92,7 @@ async function runConfigShow(argv: string[]): Promise<void> {
     cliConfigPath: args.configPath,
     envConfigPath: process.env['SEITON_CONFIG'],
     logger: log,
-  });
+  }, 'config show');
   const redacted = redactConfig(config);
   process.stdout.write(`${JSON.stringify(redacted, null, 2)}\n`);
   process.exit(ExitCode.SUCCESS);

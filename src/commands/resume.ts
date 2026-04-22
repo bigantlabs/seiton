@@ -59,8 +59,8 @@ export async function loadPendingOps(
 }
 
 export interface ResumeApplyOutcome extends ApplyResult {
-  /** True when no save was needed or the save succeeded; false when the save failed. */
   savedRemaining: boolean;
+  pendingCleanupFailed: boolean;
 }
 
 export async function resumeApply(
@@ -72,6 +72,7 @@ export async function resumeApply(
   const result = await applyOps(ops, session, bw, logger);
 
   let savedRemaining = true;
+  let pendingCleanupFailed = false;
   if (result.failed.length > 0 || result.remaining.length > 0) {
     const persist = [...result.failed, ...result.remaining];
     savedRemaining = await savePendingOps(persist, pendingPath, fs, clock, logger);
@@ -83,9 +84,10 @@ export async function resumeApply(
       if (code !== 'ENOENT' && code !== 'NOT_FOUND') {
         const message = err instanceof Error ? err.message : String(err);
         logger?.warn('resume: failed to remove pending file after successful apply', { path: pendingPath, error: message });
+        pendingCleanupFailed = true;
       }
     }
   }
 
-  return { ...result, savedRemaining };
+  return { ...result, savedRemaining, pendingCleanupFailed };
 }
