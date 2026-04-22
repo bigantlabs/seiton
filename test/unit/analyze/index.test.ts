@@ -372,7 +372,7 @@ describe('analyzeItems', () => {
       }
     });
 
-    it('folder name matching is case-sensitive', () => {
+    it('folder name matching is case-insensitive', () => {
       const item = makeItem({
         id: 'gh',
         folderId: null,
@@ -389,7 +389,7 @@ describe('analyzeItems', () => {
       );
       const folders = findings.filter((f) => f.category === 'folders');
       if (folders[0]!.category === 'folders') {
-        assert.equal(folders[0].existingFolderId, null);
+        assert.equal(folders[0].existingFolderId, 'dev-lower-uuid');
       }
     });
 

@@ -76,13 +76,14 @@ export function collectOpsFromFindings(
 export interface InteractiveReviewOptions extends ReviewOptions {
   prompt: PromptAdapter;
   maskChar: string;
+  onProgress?: (ops: readonly PendingOp[]) => void;
 }
 
 export async function interactiveReview(
   findings: readonly Finding[],
   opts: InteractiveReviewOptions,
 ): Promise<ReviewResult> {
-  const { prompt, skipCategories, limitPerCategory, maskChar } = opts;
+  const { prompt, skipCategories, limitPerCategory, maskChar, onProgress } = opts;
   const ops: PendingOp[] = [];
   let reviewed = 0;
   let skipped = 0;
@@ -111,6 +112,7 @@ export async function interactiveReview(
 
     if (action === 'skip') continue;
     for (const op of action) ops.push(op);
+    onProgress?.(ops);
   }
 
   return { ops, reviewed, skipped, cancelled: false };

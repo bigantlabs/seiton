@@ -126,6 +126,7 @@ async function executeAuditPipeline(
     prompt,
     maskChar: config.ui.mask_character,
     dryRun,
+    onProgress: (ops) => setPendingOps([...ops]),
   });
 
   logger.info('audit: review complete', {
@@ -221,6 +222,7 @@ interface RunReviewOpts {
   prompt: PromptAdapter;
   maskChar: string;
   dryRun: boolean;
+  onProgress?: (ops: readonly PendingOp[]) => void;
 }
 
 async function runReview(
@@ -241,6 +243,7 @@ async function runReview(
     logger: opts.logger,
     prompt: opts.prompt,
     maskChar: opts.maskChar,
+    onProgress: opts.onProgress,
   });
 }
 

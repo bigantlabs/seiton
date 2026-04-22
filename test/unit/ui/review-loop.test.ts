@@ -76,7 +76,7 @@ describe('collectOpsFromFindings', () => {
   it('creates folder ops for folder findings', () => {
     const item = makeItem({ id: 'item-1' });
     const findings: Finding[] = [
-      { category: 'folders', item, suggestedFolder: 'Banking' },
+      { category: 'folders', item, suggestedFolder: 'Banking', existingFolderId: null },
     ];
     const result = collectOpsFromFindings(findings, {
       skipCategories: [],
@@ -89,8 +89,8 @@ describe('collectOpsFromFindings', () => {
 
   it('deduplicates create_folder ops for same folder', () => {
     const findings: Finding[] = [
-      { category: 'folders', item: makeItem({ id: '1' }), suggestedFolder: 'Banking' },
-      { category: 'folders', item: makeItem({ id: '2' }), suggestedFolder: 'Banking' },
+      { category: 'folders', item: makeItem({ id: '1' }), suggestedFolder: 'Banking', existingFolderId: null },
+      { category: 'folders', item: makeItem({ id: '2' }), suggestedFolder: 'Banking', existingFolderId: null },
     ];
     const result = collectOpsFromFindings(findings, {
       skipCategories: [],

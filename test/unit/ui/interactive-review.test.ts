@@ -129,7 +129,7 @@ describe('interactiveReview', () => {
 
   it('creates folder ops when user accepts folder suggestion', async () => {
     const findings: Finding[] = [
-      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking' },
+      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking', existingFolderId: null },
     ];
     const prompt = makeMockPrompt([0]);
     const result = await interactiveReview(findings, {
@@ -145,7 +145,7 @@ describe('interactiveReview', () => {
 
   it('skips folder finding when user selects skip', async () => {
     const findings: Finding[] = [
-      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking' },
+      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking', existingFolderId: null },
     ];
     const prompt = makeMockPrompt([1]);
     const result = await interactiveReview(findings, {
@@ -249,7 +249,7 @@ describe('interactiveReview', () => {
 
   it('cancels on null from folder select', async () => {
     const findings: Finding[] = [
-      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking' },
+      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking', existingFolderId: null },
     ];
     const prompt = makeMockPrompt([null]);
     const result = await interactiveReview(findings, {
@@ -265,7 +265,7 @@ describe('interactiveReview', () => {
   it('handles mixed finding types in sequence', async () => {
     const findings: Finding[] = [
       { category: 'weak', item: makeItem({ id: '1' }), score: 1, reasons: ['short'] },
-      { category: 'folders', item: makeItem({ id: '2' }), suggestedFolder: 'Banking' },
+      { category: 'folders', item: makeItem({ id: '2' }), suggestedFolder: 'Banking', existingFolderId: null },
       { category: 'missing', item: makeItem({ id: '3' }), missingFields: ['username'] },
     ];
     const prompt = makeMockPrompt([true, 0, true]);
@@ -281,8 +281,8 @@ describe('interactiveReview', () => {
 
   it('deduplicates create_folder ops across multiple folder findings', async () => {
     const findings: Finding[] = [
-      { category: 'folders', item: makeItem({ id: '1' }), suggestedFolder: 'Banking' },
-      { category: 'folders', item: makeItem({ id: '2' }), suggestedFolder: 'Banking' },
+      { category: 'folders', item: makeItem({ id: '1' }), suggestedFolder: 'Banking', existingFolderId: null },
+      { category: 'folders', item: makeItem({ id: '2' }), suggestedFolder: 'Banking', existingFolderId: null },
     ];
     const prompt = makeMockPrompt([0, 0]);
     const result = await interactiveReview(findings, {
@@ -311,5 +311,23 @@ describe('interactiveReview', () => {
     });
     assert.equal(result.ops.length, 1);
     assert.equal(result.ops[0]!.kind, 'delete_item');
+  });
+
+  it('invokes onProgress after each approved op so SIGINT cleanup sees latest state', async () => {
+    const findings: Finding[] = [
+      { category: 'duplicates', items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })], key: 'k1' },
+      { category: 'duplicates', items: [makeItem({ id: 'c' }), makeItem({ id: 'd' })], key: 'k2' },
+    ];
+    const prompt = makeMockPrompt([0, 0]);
+    const snapshots: number[] = [];
+    const result = await interactiveReview(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+      prompt,
+      maskChar: '•',
+      onProgress: (ops) => snapshots.push(ops.length),
+    });
+    assert.deepEqual(snapshots, [1, 2]);
+    assert.equal(result.ops.length, 2);
   });
 });

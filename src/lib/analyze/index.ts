@@ -151,7 +151,8 @@ function findFolderSuggestions(
 ): Finding[] {
   const existingByName = new Map<string, string>();
   for (const f of existingFolders) {
-    if (!existingByName.has(f.name)) existingByName.set(f.name, f.id);
+    const key = f.name.toLowerCase();
+    if (!existingByName.has(key)) existingByName.set(key, f.id);
   }
 
   const findings: Finding[] = [];
@@ -167,7 +168,7 @@ function findFolderSuggestions(
       config.enabled_categories,
     );
     if (folder) {
-      findings.push(makeFolderFinding(item, folder, existingByName.get(folder) ?? null));
+      findings.push(makeFolderFinding(item, folder, existingByName.get(folder.toLowerCase()) ?? null));
     }
   }
   return findings;
