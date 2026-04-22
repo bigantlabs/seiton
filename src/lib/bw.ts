@@ -69,7 +69,7 @@ export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAd
     },
 
     async getItem(session: string, itemId: string): Promise<BwResult<BwItem>> {
-      const result = await run(['get', 'item', itemId, '--session', session]);
+      const result = await run(['get', 'item', itemId], { BW_SESSION: session });
       if (!result.ok) return result;
       let raw: unknown;
       try {
@@ -85,7 +85,7 @@ export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAd
     },
 
     async listItems(session: string): Promise<BwResult<BwItem[]>> {
-      const result = await run(['list', 'items', '--session', session]);
+      const result = await run(['list', 'items'], { BW_SESSION: session });
       if (!result.ok) return result;
       let raw: unknown;
       try {
@@ -101,7 +101,7 @@ export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAd
     },
 
     async listFolders(session: string): Promise<BwResult<BwFolder[]>> {
-      const result = await run(['list', 'folders', '--session', session]);
+      const result = await run(['list', 'folders'], { BW_SESSION: session });
       if (!result.ok) return result;
       let raw: unknown;
       try {
@@ -117,19 +117,19 @@ export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAd
     },
 
     async editItem(session: string, itemId: string, encodedJson: string): Promise<BwResult<void>> {
-      const result = await run(['edit', 'item', itemId, encodedJson, '--session', session]);
+      const result = await run(['edit', 'item', itemId, encodedJson], { BW_SESSION: session });
       if (!result.ok) return result;
       return { ok: true, data: undefined };
     },
 
     async deleteItem(session: string, itemId: string): Promise<BwResult<void>> {
-      const result = await run(['delete', 'item', itemId, '--session', session]);
+      const result = await run(['delete', 'item', itemId], { BW_SESSION: session });
       if (!result.ok) return result;
       return { ok: true, data: undefined };
     },
 
     async createFolder(session: string, encodedJson: string): Promise<BwResult<string>> {
-      const result = await run(['create', 'folder', encodedJson, '--session', session]);
+      const result = await run(['create', 'folder', encodedJson], { BW_SESSION: session });
       if (!result.ok) return result;
       try {
         const parsed = JSON.parse(result.data) as { id?: string };
@@ -143,17 +143,10 @@ export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAd
     },
 
     async sync(session: string): Promise<BwResult<void>> {
-      const result = await run(['sync', '--session', session]);
+      const result = await run(['sync'], { BW_SESSION: session });
       if (!result.ok) return result;
       return { ok: true, data: undefined };
     },
   };
 }
 
-export async function getBwVersion(logger?: Logger): Promise<string> {
-  logger?.debug('bw: fetching version');
-  const { stdout } = await execFileAsync('bw', ['--version'], { timeout: 10_000 });
-  const version = stdout.trim();
-  logger?.debug('bw: version retrieved', { version });
-  return version;
-}

@@ -1,5 +1,5 @@
 import { loadConfigWithPath, ConfigError } from '../config/loader.js';
-import { getBwVersion } from '../lib/bw.js';
+import { createBwAdapter, type BwAdapter } from '../lib/bw.js';
 import { VERSION } from '../version.js';
 import type { Logger } from '../adapters/logging.js';
 import { createNoopLogger } from '../adapters/logging.js';
@@ -11,6 +11,7 @@ export interface DoctorOptions {
   logger?: Logger;
   bwSession?: string;
   nodeVersion?: string;
+  bwAdapter?: BwAdapter;
 }
 
 export interface CheckResult {
@@ -25,7 +26,8 @@ export async function runDoctorChecks(opts: DoctorOptions = {}): Promise<CheckRe
 
   const results: CheckResult[] = [];
   results.push(checkNodeVersion(opts.nodeVersion ?? process.versions.node));
-  results.push(await checkBwBinary(log));
+  const bwAdapter = opts.bwAdapter ?? createBwAdapter(undefined, log);
+  results.push(await checkBwBinary(bwAdapter));
   results.push(checkBwSession(opts.bwSession));
   results.push(await checkConfig(opts, log));
   results.push(checkVersion());
@@ -40,18 +42,15 @@ function checkNodeVersion(nodeVersion: string): CheckResult {
   return { name: 'node', status: 'fail', detail: `v${nodeVersion} (requires >=22)` };
 }
 
-async function checkBwBinary(logger?: Logger): Promise<CheckResult> {
-  try {
-    const version = await getBwVersion(logger);
-    return { name: 'bw', status: 'ok', detail: `v${version}` };
-  } catch (err: unknown) {
-    const code = (err as { code?: string } | null)?.code;
-    if (code === 'ENOENT') {
-      return { name: 'bw', status: 'fail', detail: 'not found on PATH' };
-    }
-    const msg = err instanceof Error ? err.message : String(err);
-    return { name: 'bw', status: 'fail', detail: `error: ${msg}` };
+async function checkBwBinary(adapter: BwAdapter): Promise<CheckResult> {
+  const result = await adapter.getVersion();
+  if (result.ok) {
+    return { name: 'bw', status: 'ok', detail: `v${result.data}` };
   }
+  if (result.error.code === 'NOT_FOUND') {
+    return { name: 'bw', status: 'fail', detail: 'not found on PATH' };
+  }
+  return { name: 'bw', status: 'fail', detail: `error: ${result.error.message}` };
 }
 
 function checkBwSession(session?: string): CheckResult {
