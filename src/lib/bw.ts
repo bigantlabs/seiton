@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { z } from 'zod';
 import { BwItemSchema, BwFolderSchema, makeBwError, BwErrorCode } from './domain/types.js';
@@ -6,6 +6,74 @@ import type { BwItem, BwFolder, BwError } from './domain/types.js';
 import type { Logger } from '../adapters/logging.js';
 
 const execFileAsync = promisify(execFile);
+const BW_TIMEOUT_MS = 30_000;
+const BW_MAX_BUFFER = 10 * 1024 * 1024;
+
+type SpawnError = Error & { stderr?: string; code?: number | string };
+
+function runWithStdin(
+  bin: string,
+  args: string[],
+  input: string,
+  env: NodeJS.ProcessEnv,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, args, { env });
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    let stdoutLen = 0;
+    let stderrLen = 0;
+    let settled = false;
+    const fail = (err: SpawnError) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err);
+    };
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM');
+      const err: SpawnError = new Error('bw command timed out');
+      err.stderr = Buffer.concat(stderrChunks).toString('utf8');
+      fail(err);
+    }, BW_TIMEOUT_MS);
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdoutLen += chunk.length;
+      if (stdoutLen > BW_MAX_BUFFER) {
+        child.kill('SIGTERM');
+        fail(new Error('stdout maxBuffer exceeded'));
+        return;
+      }
+      stdoutChunks.push(chunk);
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderrLen += chunk.length;
+      if (stderrLen > BW_MAX_BUFFER) {
+        child.kill('SIGTERM');
+        fail(new Error('stderr maxBuffer exceeded'));
+        return;
+      }
+      stderrChunks.push(chunk);
+    });
+    child.on('error', (err) => fail(err as SpawnError));
+    child.stdin.on('error', (err) => fail(err as SpawnError));
+    child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const stdout = Buffer.concat(stdoutChunks).toString('utf8');
+      const stderr = Buffer.concat(stderrChunks).toString('utf8');
+      if (code === 0) {
+        resolve(stdout);
+        return;
+      }
+      const err: SpawnError = new Error(stderr || `bw exited with code ${code ?? 'null'}`);
+      if (typeof code === 'number') err.code = code;
+      err.stderr = stderr;
+      reject(err);
+    });
+    child.stdin.end(input);
+  });
+}
 
 export type BwResult<T> = { ok: true; data: T } | { ok: false; error: BwError };
 
@@ -24,13 +92,21 @@ export interface BwAdapter {
 export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAdapter {
   const bin = bwBinary ?? 'bw';
 
-  async function run(args: string[], env?: Record<string, string>): Promise<BwResult<string>> {
+  async function run(
+    args: string[],
+    opts: { env?: Record<string, string>; input?: string } = {},
+  ): Promise<BwResult<string>> {
     logger?.debug('bw: exec', { bin, args });
+    const mergedEnv = { ...process.env, ...opts.env };
     try {
+      if (opts.input !== undefined) {
+        const stdout = await runWithStdin(bin, args, opts.input, mergedEnv);
+        return { ok: true, data: stdout };
+      }
       const { stdout } = await execFileAsync(bin, args, {
-        timeout: 30_000,
-        maxBuffer: 10 * 1024 * 1024,
-        env: { ...process.env, ...env },
+        timeout: BW_TIMEOUT_MS,
+        maxBuffer: BW_MAX_BUFFER,
+        env: mergedEnv,
       });
       return { ok: true, data: stdout };
     } catch (err: unknown) {
@@ -70,7 +146,7 @@ export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAd
     },
 
     async getItem(session: string, itemId: string): Promise<BwResult<BwItem>> {
-      const result = await run(['get', 'item', itemId], { BW_SESSION: session });
+      const result = await run(['get', 'item', itemId], { env: { BW_SESSION: session } });
       if (!result.ok) return result;
       let raw: unknown;
       try {
@@ -86,7 +162,7 @@ export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAd
     },
 
     async listItems(session: string): Promise<BwResult<BwItem[]>> {
-      const result = await run(['list', 'items'], { BW_SESSION: session });
+      const result = await run(['list', 'items'], { env: { BW_SESSION: session } });
       if (!result.ok) return result;
       let raw: unknown;
       try {
@@ -102,7 +178,7 @@ export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAd
     },
 
     async listFolders(session: string): Promise<BwResult<BwFolder[]>> {
-      const result = await run(['list', 'folders'], { BW_SESSION: session });
+      const result = await run(['list', 'folders'], { env: { BW_SESSION: session } });
       if (!result.ok) return result;
       let raw: unknown;
       try {
@@ -118,19 +194,25 @@ export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAd
     },
 
     async editItem(session: string, itemId: string, encodedJson: string): Promise<BwResult<void>> {
-      const result = await run(['edit', 'item', itemId, encodedJson], { BW_SESSION: session });
+      const result = await run(['edit', 'item', itemId], {
+        env: { BW_SESSION: session },
+        input: encodedJson,
+      });
       if (!result.ok) return result;
       return { ok: true, data: undefined };
     },
 
     async deleteItem(session: string, itemId: string): Promise<BwResult<void>> {
-      const result = await run(['delete', 'item', itemId], { BW_SESSION: session });
+      const result = await run(['delete', 'item', itemId], { env: { BW_SESSION: session } });
       if (!result.ok) return result;
       return { ok: true, data: undefined };
     },
 
     async createFolder(session: string, encodedJson: string): Promise<BwResult<string>> {
-      const result = await run(['create', 'folder', encodedJson], { BW_SESSION: session });
+      const result = await run(['create', 'folder'], {
+        env: { BW_SESSION: session },
+        input: encodedJson,
+      });
       if (!result.ok) return result;
       try {
         const parsed = JSON.parse(result.data) as { id?: string };
@@ -144,7 +226,7 @@ export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAd
     },
 
     async sync(session: string): Promise<BwResult<void>> {
-      const result = await run(['sync'], { BW_SESSION: session });
+      const result = await run(['sync'], { env: { BW_SESSION: session } });
       if (!result.ok) return result;
       return { ok: true, data: undefined };
     },
