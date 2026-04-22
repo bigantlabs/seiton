@@ -36,6 +36,10 @@ Run 'seiton <command> --help' for command-specific usage.`;
 
 const COMMANDS = new Set(['audit', 'resume', 'discard', 'report', 'doctor', 'config']);
 const VALUE_TAKING_FLAGS = new Set(['--config', '--skip', '--limit']);
+const KNOWN_GLOBAL_FLAGS = new Set([
+  '--config', '--dry-run', '--no-color', '--verbose', '-v', '--quiet', '-q',
+  '--skip', '--limit', '--help', '-h', '--version', '-V',
+]);
 
 function findFirstPositional(rawArgs: string[]): { index: number; value: string } | undefined {
   for (let i = 0; i < rawArgs.length; i++) {
@@ -68,6 +72,15 @@ async function main(): Promise<void> {
     if (rawArgs.includes('--help') || rawArgs.includes('-h')) {
       process.stdout.write(`${HELP_TEXT}\n`);
       process.exit(ExitCode.SUCCESS);
+    }
+  }
+
+  if (!firstPos) {
+    for (const arg of rawArgs) {
+      if (arg.startsWith('-') && !KNOWN_GLOBAL_FLAGS.has(arg)) {
+        process.stderr.write(`seiton: unknown flag "${arg}"\nRun 'seiton --help' for usage.\n`);
+        process.exit(ExitCode.USAGE);
+      }
     }
   }
 

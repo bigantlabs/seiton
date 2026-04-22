@@ -31,4 +31,25 @@ describe('CLI routing', () => {
     assert.equal(exitCode, 0);
     assert.match(stdout.trim(), /^\d+\.\d+\.\d+$/);
   });
+
+  it('unknown global flag exits 64 with error message', async () => {
+    const { stderr, exitCode } = await runCli(['--unknown-flag']);
+    assert.equal(exitCode, 64);
+    assert.ok(stderr.includes('unknown flag'));
+    assert.ok(stderr.includes('--unknown-flag'));
+  });
+
+  it('unknown flag passed to command exits 64', async () => {
+    const { stderr, exitCode } = await runCli(['--unknown-flag', 'audit']);
+    assert.equal(exitCode, 64);
+    // When a flag is passed to a subcommand, it reports "Unknown option" (capital U)
+    assert.ok(stderr.includes('Unknown option'));
+  });
+
+  it('misspelled flag exits 64', async () => {
+    const { stderr, exitCode } = await runCli(['--verbosity']);
+    assert.equal(exitCode, 64);
+    assert.ok(stderr.includes('unknown flag'));
+    assert.ok(stderr.includes('--verbosity'));
+  });
 });
