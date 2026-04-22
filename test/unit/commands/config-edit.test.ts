@@ -63,6 +63,29 @@ describe('configEdit', () => {
     }
   });
 
+  it('reports error when editor returns with a signal', async () => {
+    // Note: Testing the signal path (line 24-25) requires spawning and killing a process.
+    // We test the error message by mocking the child process with a script that uses trap.
+    const configPath = join(tempDir, 'config.json');
+
+    // Create a shell script that will exit via a signal
+    const scriptPath = join(tempDir, 'kill-self.sh');
+    await (await import('node:fs/promises')).writeFile(
+      scriptPath,
+      '#!/bin/bash\nkill -TERM $$\nwait\n',
+      { mode: 0o755 },
+    );
+
+    process.env['EDITOR'] = scriptPath;
+
+    const result = await configEdit(configPath);
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      // When a process is killed by a signal, the error message should mention it
+      assert.ok(result.error.includes('terminated by signal'));
+    }
+  });
+
   it('splits editor string on whitespace for arguments', async () => {
     const configPath = join(tempDir, 'config.json');
     // Use 'echo' which will succeed and accepts multiple arguments

@@ -20,8 +20,10 @@ export async function configEdit(configFilePath: string): Promise<ConfigEditResu
       resolve({ ok: false, error: `Failed to launch editor "${editorEnv}": ${err.message}` });
     });
 
-    child.on('exit', async (code) => {
-      if (code === 0 || code === null) {
+    child.on('exit', async (code, signal) => {
+      if (signal) {
+        resolve({ ok: false, error: `Editor "${editorEnv}" was terminated by signal ${signal}` });
+      } else if (code === 0) {
         try {
           const content = await readFile(configFilePath, 'utf-8');
           const raw = JSON.parse(content) as unknown;
