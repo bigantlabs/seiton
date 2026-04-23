@@ -153,22 +153,29 @@ function createPlainAdapter(): PromptAdapter {
       finally { rl.close(); }
     },
 
-    async multiselect<T>(message: string, options: SelectOption<T>[]): Promise<T[] | null> {
+    async multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean): Promise<T[] | null> {
       if (isShuttingDown()) return null;
       const rl = createInterface({ input: process.stdin, output: process.stdout });
       try {
         const lines = options.map((o, i) => `  ${i + 1}) ${o.label}`);
-        const prompt = `${message} (comma-separated numbers)\n${lines.join('\n')}\n> `;
-        const answer = await new Promise<string>((resolve, reject) => {
-          rl.question(prompt, resolve);
-          rl.once('close', () => reject(new Error('cancelled')));
-        });
-        const indices = answer.split(',').map(s => parseInt(s.trim(), 10) - 1);
-        const results: T[] = [];
-        for (const idx of indices) {
-          if (idx >= 0 && idx < options.length) results.push(options[idx]!.value);
+        process.stdout.write(`${message} (comma-separated numbers)\n${lines.join('\n')}\n`);
+        while (true) {
+          const answer = await new Promise<string>((resolve, reject) => {
+            const onClose = () => reject(new Error('cancelled'));
+            rl.once('close', onClose);
+            rl.question('> ', (ans) => {
+              rl.removeListener('close', onClose);
+              resolve(ans);
+            });
+          });
+          const indices = answer.split(',').map(s => parseInt(s.trim(), 10) - 1);
+          const results: T[] = [];
+          for (const idx of indices) {
+            if (idx >= 0 && idx < options.length) results.push(options[idx]!.value);
+          }
+          if (!required || results.length > 0) return results;
+          process.stderr.write(`[warn] At least one selection is required. Enter comma-separated numbers between 1 and ${options.length}.\n`);
         }
-        return results;
       } catch { return null; }
       finally { rl.close(); }
     },
