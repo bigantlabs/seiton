@@ -20,8 +20,20 @@ export function makeFakeProc(
       if (!v) throw new Error(`Missing env: ${name}`);
       return v;
     },
-    getEnvAsInt: () => undefined,
-    getEnvAsBool: () => undefined,
+    getEnvAsInt: (name) => {
+      const v = env[name];
+      if (v === undefined || v === '') return undefined;
+      const n = Number.parseInt(v, 10);
+      return Number.isFinite(n) ? n : undefined;
+    },
+    getEnvAsBool: (name) => {
+      const v = env[name];
+      if (v === undefined || v === '') return undefined;
+      const lowered = v.toLowerCase();
+      if (lowered === 'true' || lowered === '1') return true;
+      if (lowered === 'false' || lowered === '0') return false;
+      return undefined;
+    },
     exit: (code) => { throw new ExitSignal(code); },
     isTTY: () => tty,
   };

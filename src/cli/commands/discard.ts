@@ -1,4 +1,5 @@
 import { parseArgs } from 'node:util';
+import { homedir } from 'node:os';
 import { ExitCode } from '../../exit-codes.js';
 import { applyNoColor } from '../no-color.js';
 import { loadConfigOrExit } from '../../config/loader.js';
@@ -72,7 +73,7 @@ export async function runDiscardCli(argv: string[]): Promise<void> {
   const prompt = createPromptAdapter(config.ui.prompt_style);
   prompt.intro(`seiton discard v${VERSION}`);
 
-  const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '/';
+  const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? homedir();
   const fsAdapter = createFsAdapter(homeDir, log);
   const result = await discardPending(config.paths.pending_queue, fsAdapter, log);
 
