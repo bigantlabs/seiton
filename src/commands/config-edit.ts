@@ -8,8 +8,9 @@ export type ConfigEditResult =
   | { ok: false; error: string };
 
 export async function configEdit(configFilePath: string): Promise<ConfigEditResult> {
-  const rawEditor = (process.env['VISUAL'] ?? process.env['EDITOR'] ?? '').trim();
-  const editorEnv = rawEditor || 'vi';
+  const visual = (process.env['VISUAL'] ?? '').trim();
+  const editorVar = (process.env['EDITOR'] ?? '').trim();
+  const editorEnv = visual || editorVar || 'vi';
   const [editor, ...editorArgs] = editorEnv.split(/\s+/);
 
   const ensured = await ensureConfigFileExists(configFilePath);

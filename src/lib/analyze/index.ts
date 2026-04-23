@@ -68,7 +68,7 @@ function findDuplicates(
           item.login?.username,
           dedupOpts,
         );
-    if (!key || key === ':') continue;
+    if (!key || key.startsWith(':')) continue;
     const group = groups.get(key);
     if (group) group.push(item);
     else groups.set(key, [item]);
@@ -149,10 +149,10 @@ function findFolderSuggestions(
   config: AnalysisConfig['folders'],
   existingFolders: readonly BwFolder[],
 ): Finding[] {
-  const existingByName = new Map<string, string>();
+  const existingByName = new Map<string, { id: string; name: string }>();
   for (const f of existingFolders) {
     const key = f.name.toLowerCase();
-    if (!existingByName.has(key)) existingByName.set(key, f.id);
+    if (!existingByName.has(key)) existingByName.set(key, { id: f.id, name: f.name });
   }
 
   const findings: Finding[] = [];
@@ -168,7 +168,8 @@ function findFolderSuggestions(
       config.enabled_categories,
     );
     if (folder) {
-      findings.push(makeFolderFinding(item, folder, existingByName.get(folder.toLowerCase()) ?? null));
+      const existing = existingByName.get(folder.toLowerCase()) ?? null;
+      findings.push(makeFolderFinding(item, existing?.name ?? folder, existing?.id ?? null));
     }
   }
   return findings;

@@ -28,6 +28,7 @@ Flags:
 
 Exit Codes:
   0   Report completed successfully
+  1   Failed to fetch vault data from bw
   3   Failed to parse bw output
   64  Invalid arguments
   77  BW_SESSION not set`;
@@ -114,7 +115,8 @@ export async function runReportCli(argv: string[]): Promise<void> {
 
   if (!result.ok) {
     process.stderr.write(`seiton: report: ${result.message}\n`);
-    process.exit(ExitCode.MALFORMED_BW_OUTPUT);
+    const exitCode = result.code === 'FETCH_FAILED' ? ExitCode.GENERAL_ERROR : ExitCode.MALFORMED_BW_OUTPUT;
+    process.exit(exitCode);
   }
 
   if (useJson) {

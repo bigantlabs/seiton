@@ -8,15 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ## [0.3.8] - 2026-04-21
-### Added
-- **Note 1** (audit.ts bare catch): Narrowed bare `catch` at `src/commands/audit.ts:184` to only ignore ENOENT/NOT_FOUND errors. Non-matching errors are now logged via `logger.debug('audit: pending file removal failed', ...)`. Satisfies Non-Negotiable Rule #10.
-
 
 ### Changed
 - Renamed `ExitCode.MALFORMED_INPUT` to `ExitCode.INTERNAL_ERROR` (value unchanged: 2) to better reflect its use for unexpected runtime errors rather than user-supplied malformed input.
 
 ### Fixed
-- Narrowed bare `catch` in `src/commands/audit.ts` pending-file removal to only ignore ENOENT/NOT_FOUND; non-ENOENT errors now logged via `logger.debug`.
+- Narrowed bare `catch` in `src/commands/audit.ts` pending-file removal to only ignore ENOENT/NOT_FOUND; non-ENOENT errors now logged via `logger.warn('audit: failed to remove pending file after successful apply', ...)`.
 - `ensureConfigFileExists` in `src/commands/config-edit.ts` now re-throws non-ENOENT errors instead of silently swallowing them.
 - Expanded `UNSAFE_PATTERNS` in `src/adapters/logging.ts` to redact `*_CREDENTIAL*`, `*_AUTH`, `*API_KEY*`, and `*PASSPHRASE` context keys (defense-in-depth).
 ## [0.3.7] - 2026-04-21
@@ -77,9 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Install instructions in `README.md` updated with verification commands.
 
 ### Fixed
-- Version synchronization: `package.json`, `src/version.ts`, and `VERSION` file now all report `0.3.0`.
+- Version synchronization: `package.json`, `src/version.ts`, `VERSION`, and `package-lock.json` now all report `0.3.0` (M9).
 
-- Synchronized version across `package.json`, `src/version.ts`, `VERSION`, and `package-lock.json` to `0.3.0` (M9)
 ## [0.2.7] - 2026-04-20
 
 ### Added
