@@ -1,4 +1,5 @@
 import { parseArgs } from 'node:util';
+import { homedir } from 'node:os';
 import { ExitCode } from '../../exit-codes.js';
 import { applyNoColor } from '../no-color.js';
 import { loadConfigOrExit } from '../../config/loader.js';
@@ -81,7 +82,7 @@ export async function runAuditCli(argv: string[]): Promise<void> {
   }, 'audit');
 
   const proc = createProcessAdapter(process.env, (code) => process.exit(code), log);
-  const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '/';
+  const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? homedir();
   const fsAdapter = createFsAdapter(homeDir, log);
   const bwAdapter = createBwAdapter(config.paths.bw_binary, log);
 
