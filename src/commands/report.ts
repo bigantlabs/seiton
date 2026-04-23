@@ -7,7 +7,7 @@ import { redactItem } from '../lib/analyze/redact.js';
 
 export type ReportResult =
   | { ok: true; findings: readonly Finding[]; itemCount: number; folderCount: number }
-  | { ok: false; code: 'PREFLIGHT_FAILED' | 'FETCH_FAILED'; message: string };
+  | { ok: false; code: 'FETCH_FAILED'; message: string };
 
 export interface ReportOptions {
   config: Config;

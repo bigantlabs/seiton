@@ -61,7 +61,8 @@ export async function applyOps(
     const itemResult = await bw.getItem(session, op.itemId);
     if (!itemResult.ok) {
       logger?.error('apply: fetch item failed', { itemId: op.itemId, error: itemResult.error.message });
-      failed.push(op);
+      const persistOp = folderId !== op.folderId ? { ...op, folderId } : op;
+      failed.push(persistOp);
       continue;
     }
 
