@@ -9,7 +9,7 @@ import { savePendingOps, resolvePendingPath } from './pending-io.js';
 
 export type ResumeResult =
   | { ok: true; applied: number; failed: number }
-  | { ok: false; code: 'NO_PENDING' | 'INVALID_PENDING' | 'VERSION_MISMATCH'; message: string };
+  | { ok: false; code: 'NO_PENDING' | 'INVALID_PENDING'; message: string };
 
 export interface ResumeOptions {
   session: string;
@@ -22,7 +22,7 @@ export interface ResumeOptions {
 export async function loadPendingOps(
   pendingQueuePath: string | null | undefined,
   logger?: Logger,
-): Promise<{ ok: true; ops: PendingOp[]; path: string } | { ok: false; code: 'NO_PENDING' | 'INVALID_PENDING' | 'VERSION_MISMATCH'; message: string }> {
+): Promise<{ ok: true; ops: PendingOp[]; path: string } | { ok: false; code: 'NO_PENDING' | 'INVALID_PENDING'; message: string }> {
   const pendingPath = resolvePendingPath(pendingQueuePath);
   logger?.info('resume: loading pending queue', { path: pendingPath });
 

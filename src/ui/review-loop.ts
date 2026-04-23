@@ -103,12 +103,12 @@ export async function interactiveReview(
       continue;
     }
 
-    categoryCounts.set(finding.category, count + 1);
     const action = await presentFinding(finding, prompt, maskChar, foldersNeeded);
     if (action === 'cancel') {
       return { ops, reviewed, skipped: skipped + (findings.length - reviewed - skipped), cancelled: true };
     }
     reviewed++;
+    categoryCounts.set(finding.category, count + 1);
 
     if (action === 'skip') continue;
     for (const op of action) ops.push(op);
