@@ -10,9 +10,17 @@ seiton runs five analyzers against your Bitwarden vault. Each analyzer produces 
 
 Finds items that appear to be duplicates based on their URIs and usernames.
 
-**Exact duplicates** share the same domain and username. When found, seiton asks which item to keep and marks the other for deletion.
+**Exact duplicates** share the same domain and username. All duplicates across every group are presented in a single flat multiselect screen where you check items to delete (unchecked items are kept). Each item displays its name, folder, username/URI, duplicate-group key, and password-revision date so you can confidently pick the freshest copy.
 
 **Near duplicates** have item names within a configurable [Levenshtein distance](https://en.wikipedia.org/wiki/Levenshtein_distance) of each other. These are flagged for manual review since they may be intentional (e.g. "GitHub" and "GitHub Enterprise").
+
+### Duplicate Review Workflow
+
+The default state is "keep all" — no items are pre-checked for deletion. You can select any combination of items for deletion, including keeping multiple items within the same group (e.g. "keep two of these three" when items are intentionally distinct).
+
+If your selections would delete every item in one or more groups (leaving zero keepers), seiton shows a targeted safety confirmation listing only the affected groups. Accepting proceeds with deletion; declining returns you to the multiselect with your previous selections preserved so you can adjust.
+
+Canceling the multiselect skips duplicate review without aborting the rest of the audit — folder suggestions and other findings continue normally.
 
 ### Configuration
 

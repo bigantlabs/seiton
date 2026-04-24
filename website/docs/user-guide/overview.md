@@ -35,7 +35,9 @@ Analysis is pure computation with no side effects. The same vault input always p
 Findings are split into two groups:
 
 - **Informational findings** (weak passwords, reused passwords, missing fields) are displayed in a consolidated batch report before the interactive loop. These are FYI-only — seiton does not generate or rotate passwords.
-- **Actionable findings** (duplicates, folder suggestions) are presented one at a time. You approve or reject each proposed change individually — there is no `--force` or `--yes-to-all` flag.
+- **Actionable findings** (duplicates, folder suggestions) are presented interactively. There is no `--force` or `--yes-to-all` flag.
+
+For duplicates, all items across every group are shown in a single flat multiselect. You check items to delete (unchecked = keep). Each item shows its folder, group key, and password-revision date. If your selections would delete every item in a group, a safety confirmation fires before proceeding.
 
 For folder suggestions, you can Accept the suggestion, Choose a different folder from your configured categories, or Skip. Approved actions are queued as pending operations.
 

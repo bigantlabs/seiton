@@ -1,5 +1,6 @@
 import type { BwAdapter } from '../lib/bw.js';
 import type { Logger } from '../adapters/logging.js';
+import { ExitCode } from '../exit-codes.js';
 
 export interface PreflightResult {
   bwVersion: string;
@@ -47,4 +48,15 @@ export async function runPreflight(
     ok: true,
     data: { bwVersion: versionResult.data, vaultStatus: statusResult.data.status },
   };
+}
+
+export function mapPreflightExit(code: string): ExitCode {
+  switch (code) {
+    case 'BW_NOT_FOUND': return ExitCode.UNAVAILABLE;
+    case 'BW_VERSION_FAILED': return ExitCode.UNAVAILABLE;
+    case 'VAULT_LOCKED': return ExitCode.NO_PERMISSION;
+    case 'SESSION_MISSING': return ExitCode.NO_PERMISSION;
+    case 'STATUS_FAILED': return ExitCode.GENERAL_ERROR;
+    default: return ExitCode.GENERAL_ERROR;
+  }
 }

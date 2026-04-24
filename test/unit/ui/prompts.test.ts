@@ -1,5 +1,6 @@
 import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { PassThrough } from 'node:stream';
 import { createPromptAdapter, type PromptAdapter } from '../../../src/ui/prompts.js';
 
 describe('createPromptAdapter', () => {
@@ -191,6 +192,7 @@ describe('createPromptAdapter', () => {
         assert.equal(stderrChunks.length, 0);
       });
     });
+
   });
 
   describe('style selection', () => {
@@ -199,5 +201,85 @@ describe('createPromptAdapter', () => {
       const plain = createPromptAdapter('plain');
       assert.notEqual(clack, plain);
     });
+  });
+});
+
+describe('plain adapter multiselect hint display', () => {
+  let origStdoutWrite: typeof process.stdout.write;
+  let origStdin: typeof process.stdin;
+  let captured: string[];
+
+  beforeEach(() => {
+    captured = [];
+    origStdoutWrite = process.stdout.write;
+    origStdin = process.stdin;
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      captured.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+  });
+
+  afterEach(() => {
+    process.stdout.write = origStdoutWrite;
+    Object.defineProperty(process, 'stdin', { value: origStdin, configurable: true, writable: true });
+  });
+
+  it('renders hint text in parentheses for options that have hints', async () => {
+    const fakeStdin = new PassThrough();
+    Object.defineProperty(process, 'stdin', { value: fakeStdin, configurable: true, writable: true });
+
+    const adapter = createPromptAdapter('plain');
+    setImmediate(() => fakeStdin.write('1\n'));
+
+    const result = await adapter.multiselect('Pick items:', [
+      { value: 'a', label: 'Item A', hint: 'Banking · group-a · revised: 2024-01-15' },
+      { value: 'b', label: 'Item B' },
+    ]);
+
+    const output = captured.join('');
+    assert.ok(output.includes('(Banking · group-a · revised: 2024-01-15)'), 'hint text should appear in parentheses');
+    assert.ok(output.includes('1) Item A'), 'should show numbered item label');
+    assert.ok(output.includes('2) Item B'), 'should show second item without hint parens');
+    assert.ok(!output.includes('Item B ('), 'items without hints should not show parentheses');
+    assert.deepEqual(result, ['a']);
+  });
+
+  it('omits parentheses for options without hints', async () => {
+    const fakeStdin = new PassThrough();
+    Object.defineProperty(process, 'stdin', { value: fakeStdin, configurable: true, writable: true });
+
+    const adapter = createPromptAdapter('plain');
+    setImmediate(() => fakeStdin.write('1,2\n'));
+
+    const result = await adapter.multiselect('Select:', [
+      { value: 'x', label: 'No Hint Item' },
+      { value: 'y', label: 'Also No Hint' },
+    ]);
+
+    const output = captured.join('');
+    assert.ok(output.includes('1) No Hint Item'), 'should show first item');
+    assert.ok(output.includes('2) Also No Hint'), 'should show second item');
+    assert.ok(!output.includes('No Hint Item ('), 'first item should not have hint parentheses');
+    assert.ok(!output.includes('Also No Hint ('), 'second item should not have hint parentheses');
+    assert.deepEqual(result, ['x', 'y']);
+  });
+
+  it('displays hints for all options that have them in a mixed list', async () => {
+    const fakeStdin = new PassThrough();
+    Object.defineProperty(process, 'stdin', { value: fakeStdin, configurable: true, writable: true });
+
+    const adapter = createPromptAdapter('plain');
+    setImmediate(() => fakeStdin.write('2\n'));
+
+    await adapter.multiselect('Pick:', [
+      { value: 'a', label: 'First', hint: 'hint-one' },
+      { value: 'b', label: 'Second' },
+      { value: 'c', label: 'Third', hint: 'hint-three' },
+    ]);
+
+    const output = captured.join('');
+    assert.ok(output.includes('First (hint-one)'), 'first option hint');
+    assert.ok(output.includes('2) Second'), 'second option without hint');
+    assert.ok(output.includes('Third (hint-three)'), 'third option hint');
   });
 });

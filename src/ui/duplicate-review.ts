@@ -7,7 +7,7 @@ import { itemLabel } from './review-loop.js';
 
 export interface DuplicateReviewResult {
   ops: PendingOp[];
-  cancelled: boolean;
+  skipped: boolean;
 }
 
 export function formatRevisionHint(item: BwItem): string {
@@ -18,55 +18,80 @@ export function formatRevisionHint(item: BwItem): string {
   return `revised: ${raw.slice(0, 10)}`;
 }
 
-export async function presentAllDuplicates(
-  findings: readonly DuplicateFinding[],
-  prompt: PromptAdapter,
-): Promise<DuplicateReviewResult> {
-  if (findings.length === 0) return { ops: [], cancelled: false };
+export function formatItemHint(
+  item: BwItem,
+  groupKey: string,
+  folderNamesById: ReadonlyMap<string, string>,
+): string {
+  const folder = item.folderId
+    ? (folderNamesById.get(item.folderId) ?? 'Unknown folder')
+    : 'No folder';
+  return `${folder} · ${groupKey} · ${formatRevisionHint(item)}`;
+}
 
+function buildOptions(
+  findings: readonly DuplicateFinding[],
+  folderNamesById: ReadonlyMap<string, string>,
+): { value: string; label: string; hint: string }[] {
   const options: { value: string; label: string; hint: string }[] = [];
   for (const finding of findings) {
     for (const item of finding.items) {
       options.push({
         value: item.id,
         label: itemLabel(item),
-        hint: `${finding.key} · ${formatRevisionHint(item)}`,
+        hint: formatItemHint(item, finding.key, folderNamesById),
       });
     }
   }
+  return options;
+}
+
+export async function presentAllDuplicates(
+  findings: readonly DuplicateFinding[],
+  prompt: PromptAdapter,
+  folderNamesById?: ReadonlyMap<string, string>,
+): Promise<DuplicateReviewResult> {
+  if (findings.length === 0) return { ops: [], skipped: false };
+
+  const folders = folderNamesById ?? new Map<string, string>();
+  const options = buildOptions(findings, folders);
 
   prompt.logStep(
     `${findings.length} duplicate group(s) found — check items to delete (unchecked = keep)`,
   );
 
-  const toDelete = await prompt.multiselect<string>(
-    'Select items to delete (unchecked items will be kept):',
-    options,
-  );
-  if (toDelete === null) return { ops: [], cancelled: true };
+  let previousSelections: string[] | undefined;
 
-  const deleteSet = new Set(toDelete);
-  const groupsLosingAll = findings.filter(f =>
-    f.items.every(item => deleteSet.has(item.id)),
-  );
-
-  if (groupsLosingAll.length > 0) {
-    const names = groupsLosingAll.map(f => f.key).join(', ');
-    const confirmed = await prompt.confirm(
-      `Warning: all items in ${groupsLosingAll.length} group(s) would be deleted (${names}). Continue?`,
+  while (true) {
+    const toDelete = await prompt.multiselect<string>(
+      'Select items to delete (unchecked items will be kept):',
+      options,
       false,
+      previousSelections,
     );
-    if (confirmed === null) return { ops: [], cancelled: true };
-    if (!confirmed) {
-      for (const f of groupsLosingAll) {
-        for (const item of f.items) deleteSet.delete(item.id);
-      }
-    }
-  }
+    if (toDelete === null) return { ops: [], skipped: true };
+    if (toDelete.length === 0) return { ops: [], skipped: false };
 
-  const ops: PendingOp[] = [];
-  for (const id of deleteSet) {
-    ops.push(makeDeleteItemOp(id));
+    previousSelections = toDelete;
+    const deleteSet = new Set(toDelete);
+    const groupsLosingAll = findings.filter(f =>
+      f.items.every(item => deleteSet.has(item.id)),
+    );
+
+    if (groupsLosingAll.length > 0) {
+      const names = groupsLosingAll.map(f => f.key).join(', ');
+      const confirmed = await prompt.confirm(
+        `Warning: all items in ${groupsLosingAll.length} group(s) would be deleted (${names}). Continue?`,
+        false,
+      );
+      if (confirmed === null) return { ops: [], skipped: true };
+      if (!confirmed) continue;
+    }
+
+    const ops: PendingOp[] = [];
+    for (const id of deleteSet) {
+      ops.push(makeDeleteItemOp(id));
+    }
+    return { ops, skipped: false };
   }
-  return { ops, cancelled: false };
 }

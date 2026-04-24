@@ -8,7 +8,7 @@ import type { Finding } from '../lib/domain/finding.js';
 import type { PendingOp } from '../lib/domain/pending.js';
 import { ExitCode } from '../exit-codes.js';
 import { VERSION } from '../version.js';
-import { runPreflight } from './preflight.js';
+import { runPreflight, mapPreflightExit } from './preflight.js';
 import { applyOps } from './apply.js';
 import { formatProgressMessage, formatApplySummary } from './apply-progress.js';
 import { collectOpsFromFindings, interactiveReview, type RuleSaveRequest } from '../ui/review-loop.js';
@@ -107,10 +107,8 @@ async function executeAuditPipeline(
   }
 
   const items = itemsResult.data;
-  const existingFoldersByName = new Map<string, string>();
-  for (const folder of foldersResult.data) {
-    existingFoldersByName.set(folder.name.toLowerCase(), folder.id);
-  }
+  const existingFoldersByName = new Map(foldersResult.data.map(f => [f.name.toLowerCase(), f.id]));
+  const folderNamesById = new Map(foldersResult.data.map(f => [f.id, f.name]));
   fetchSpin.stop(`Fetched ${items.length} items, ${foldersResult.data.length} folders`);
 
   logger.info('audit: analyzing');
@@ -153,6 +151,7 @@ async function executeAuditPipeline(
     dryRun,
     enabledCategories: config.folders.enabled_categories,
     existingFoldersByName,
+    folderNamesById,
     onProgress: (ops) => setPendingOps([...ops]),
     onRuleSave,
   });
@@ -258,6 +257,7 @@ interface RunReviewOpts {
   dryRun: boolean;
   enabledCategories: readonly string[];
   existingFoldersByName: ReadonlyMap<string, string>;
+  folderNamesById?: ReadonlyMap<string, string>;
   onProgress?: (ops: readonly PendingOp[]) => void;
   onRuleSave?: (request: RuleSaveRequest) => Promise<void>;
 }
@@ -282,18 +282,9 @@ async function runReview(
     maskChar: opts.maskChar,
     enabledCategories: opts.enabledCategories,
     existingFoldersByName: opts.existingFoldersByName,
+    folderNamesById: opts.folderNamesById,
     onProgress: opts.onProgress,
     onRuleSave: opts.onRuleSave,
   });
 }
 
-function mapPreflightExit(code: string): ExitCode {
-  switch (code) {
-    case 'BW_NOT_FOUND': return ExitCode.UNAVAILABLE;
-    case 'BW_VERSION_FAILED': return ExitCode.UNAVAILABLE;
-    case 'VAULT_LOCKED': return ExitCode.NO_PERMISSION;
-    case 'SESSION_MISSING': return ExitCode.NO_PERMISSION;
-    case 'STATUS_FAILED': return ExitCode.GENERAL_ERROR;
-    default: return ExitCode.GENERAL_ERROR;
-  }
-}

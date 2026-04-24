@@ -16,7 +16,7 @@ export interface PromptAdapter {
   cancelled(message?: string): void;
   select<T>(message: string, options: SelectOption<T>[]): Promise<T | null>;
   confirm(message: string, initial?: boolean): Promise<boolean | null>;
-  multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean): Promise<T[] | null>;
+  multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean, initialValues?: T[]): Promise<T[] | null>;
   text(message: string, placeholder?: string): Promise<string | null>;
   startSpinner(message: string): SpinnerHandle;
   logInfo(message: string): void;
@@ -68,10 +68,10 @@ function createClackAdapter(): PromptAdapter {
       return result;
     },
 
-    async multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean): Promise<T[] | null> {
+    async multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean, initialValues?: T[]): Promise<T[] | null> {
       if (isShuttingDown()) return null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await clack.multiselect({ message, options: options as any, required });
+      const result = await clack.multiselect({ message, options: options as any, required, initialValues: initialValues as any });
       if (clack.isCancel(result)) return null;
       return result as T[];
     },
@@ -153,11 +153,11 @@ function createPlainAdapter(): PromptAdapter {
       finally { rl.close(); }
     },
 
-    async multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean): Promise<T[] | null> {
+    async multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean, _initialValues?: T[]): Promise<T[] | null> {
       if (isShuttingDown()) return null;
       const rl = createInterface({ input: process.stdin, output: process.stdout });
       try {
-        const lines = options.map((o, i) => `  ${i + 1}) ${o.label}`);
+        const lines = options.map((o, i) => `  ${i + 1}) ${o.label}${o.hint ? ` (${o.hint})` : ''}`);
         process.stdout.write(`${message} (comma-separated numbers)\n${lines.join('\n')}\n`);
         while (true) {
           const answer = await new Promise<string>((resolve, reject) => {

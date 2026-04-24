@@ -86,6 +86,7 @@ export interface InteractiveReviewOptions extends ReviewOptions {
   maskChar: string;
   enabledCategories: readonly string[];
   existingFoldersByName: ReadonlyMap<string, string>;
+  folderNamesById?: ReadonlyMap<string, string>;
   onProgress?: (ops: readonly PendingOp[]) => void;
   onRuleSave?: (request: RuleSaveRequest) => Promise<void>;
 }
@@ -131,13 +132,14 @@ export async function interactiveReview(
   reviewed += informational.length;
 
   if (duplicates.length > 0) {
-    const dupResult = await presentAllDuplicates(duplicates, prompt);
-    if (dupResult.cancelled) {
-      return { ops, reviewed, skipped: skipped + duplicates.length + folders.length, cancelled: true };
+    const dupResult = await presentAllDuplicates(duplicates, prompt, opts.folderNamesById);
+    if (dupResult.skipped) {
+      skipped += duplicates.length;
+    } else {
+      for (const op of dupResult.ops) ops.push(op);
+      reviewed += duplicates.length;
+      onProgress?.(ops);
     }
-    for (const op of dupResult.ops) ops.push(op);
-    reviewed += duplicates.length;
-    onProgress?.(ops);
   }
 
   const foldersNeeded = new Set<string>();

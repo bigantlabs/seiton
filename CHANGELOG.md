@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.3.13] - 2026-04-24
+
+### Added
+- **Loop-back on safety confirm decline**: When the user's selections would delete all items in a group and they decline the safety confirmation, the multiselect is re-shown with their previous selections preserved (via `initialValues` in the clack adapter) so they can adjust. (M19)
 
 ## [0.3.12] - 2026-04-24
 

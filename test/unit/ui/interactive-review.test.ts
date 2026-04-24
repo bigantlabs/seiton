@@ -111,14 +111,17 @@ describe('interactiveReview', () => {
     assert.equal(result.ops[1]!.kind, 'delete_item');
   });
 
-  it('cancels on null from multiselect (user presses Ctrl+C)', async () => {
+  it('skips duplicates without aborting when multiselect is cancelled', async () => {
     const items = [makeItem({ id: 'a' }), makeItem({ id: 'b' })];
     const findings: Finding[] = [
       { category: 'duplicates', items, key: 'k1' },
+      { category: 'folders', item: makeItem({ id: 'f1' }), suggestedFolder: 'Banking', existingFolderId: null, matchReason: { matchedKeyword: 'bank', ruleSource: 'builtin' } },
     ];
-    const result = await interactiveReview(findings, opts({ prompt: makeMockPrompt([], [null]) }));
-    assert.equal(result.ops.length, 0);
-    assert.equal(result.reviewed, 0);
+    const result = await interactiveReview(findings, opts({ prompt: makeMockPrompt([0], [null]) }));
+    assert.equal(result.cancelled, false);
+    assert.equal(result.skipped, 1);
+    assert.equal(result.reviewed, 1);
+    assert.ok(result.ops.length > 0);
   });
 
   it('creates folder ops when user accepts folder suggestion', async () => {
