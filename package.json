@@ -25,7 +25,8 @@
     "test": "node --import tsx --test 'test/unit/**/*.test.ts'",
     "test:unit": "node --import tsx --test 'test/unit/**/*.test.ts'",
     "test:integration": "node --import tsx --test 'test/integration/**/*.test.ts'",
-    "test:coverage": "node --experimental-test-coverage --test-coverage-include='src/**/*.ts' --test-coverage-exclude='test/**' --import tsx --test 'test/unit/**/*.test.ts'"
+    "test:coverage": "node --experimental-test-coverage --test-coverage-include='src/**/*.ts' --test-coverage-exclude='test/**' --import tsx --test 'test/unit/**/*.test.ts'",
+    "gen:docs": "node --import tsx scripts/gen-schemas.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -1,0 +1,364 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 1,
+      "description": "Config file format version (must be 1)"
+    },
+    "core": {
+      "type": "object",
+      "properties": {
+        "output_format": {
+          "default": "text",
+          "description": "Output format for CLI results",
+          "type": "string",
+          "enum": [
+            "text",
+            "json"
+          ]
+        },
+        "color": {
+          "default": "auto",
+          "description": "Color mode for terminal output",
+          "type": "string",
+          "enum": [
+            "auto",
+            "always",
+            "never"
+          ]
+        },
+        "verbose": {
+          "default": 0,
+          "description": "Verbosity level (0=normal, 1=verbose, 2=debug)",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "quiet": {
+          "default": false,
+          "description": "Suppress non-essential output",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "output_format",
+        "color",
+        "verbose",
+        "quiet"
+      ],
+      "additionalProperties": false,
+      "description": "Core CLI behavior settings"
+    },
+    "paths": {
+      "type": "object",
+      "properties": {
+        "pending_queue": {
+          "default": null,
+          "description": "Custom path for the pending operations queue file",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bw_binary": {
+          "default": null,
+          "description": "Custom path to the Bitwarden CLI binary",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "pending_queue",
+        "bw_binary"
+      ],
+      "additionalProperties": false,
+      "description": "File path overrides"
+    },
+    "audit": {
+      "type": "object",
+      "properties": {
+        "skip_categories": {
+          "default": [],
+          "description": "Finding categories to skip during audit",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limit_per_category": {
+          "default": null,
+          "description": "Maximum findings to show per category (null = unlimited)",
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "save_pending_on_sigint": {
+          "default": true,
+          "description": "Save pending operations on SIGINT",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "skip_categories",
+        "limit_per_category",
+        "save_pending_on_sigint"
+      ],
+      "additionalProperties": false,
+      "description": "Audit behavior settings"
+    },
+    "strength": {
+      "type": "object",
+      "properties": {
+        "min_length": {
+          "default": 12,
+          "description": "Minimum acceptable password length",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "require_digit": {
+          "default": true,
+          "description": "Require at least one digit in passwords",
+          "type": "boolean"
+        },
+        "require_symbol": {
+          "default": true,
+          "description": "Require at least one symbol in passwords",
+          "type": "boolean"
+        },
+        "min_character_classes": {
+          "default": 2,
+          "description": "Minimum distinct character classes (lowercase, uppercase, digit, symbol)",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "zxcvbn_min_score": {
+          "default": 2,
+          "description": "Minimum zxcvbn strength score (0=weakest, 4=strongest)",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "extra_common_passwords": {
+          "default": [],
+          "description": "Additional passwords to treat as common/weak",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "min_length",
+        "require_digit",
+        "require_symbol",
+        "min_character_classes",
+        "zxcvbn_min_score",
+        "extra_common_passwords"
+      ],
+      "additionalProperties": false,
+      "description": "Password strength policy settings"
+    },
+    "dedup": {
+      "type": "object",
+      "properties": {
+        "name_similarity_threshold": {
+          "default": 3,
+          "description": "Levenshtein distance threshold for near-duplicate detection (0 = exact only)",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "treat_www_as_same_domain": {
+          "default": true,
+          "description": "Treat www.example.com and example.com as the same domain",
+          "type": "boolean"
+        },
+        "case_insensitive_usernames": {
+          "default": true,
+          "description": "Ignore case when comparing usernames for duplicates",
+          "type": "boolean"
+        },
+        "compare_only_primary_uri": {
+          "default": true,
+          "description": "Only compare the first URI when detecting duplicates",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name_similarity_threshold",
+        "treat_www_as_same_domain",
+        "case_insensitive_usernames",
+        "compare_only_primary_uri"
+      ],
+      "additionalProperties": false,
+      "description": "Duplicate detection settings"
+    },
+    "folders": {
+      "type": "object",
+      "properties": {
+        "preserve_existing": {
+          "default": true,
+          "description": "Keep items in their current folder if already assigned",
+          "type": "boolean"
+        },
+        "enabled_categories": {
+          "default": [
+            "Banking & Finance",
+            "Email",
+            "Social",
+            "Shopping",
+            "Development",
+            "Entertainment",
+            "Utilities",
+            "Government & ID",
+            "Health",
+            "Other"
+          ],
+          "description": "Folder categories available for auto-classification",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "custom_rules": {
+          "default": [],
+          "description": "Custom keyword-based folder classification rules (evaluated before built-ins)",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "folder": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Target folder name for matched items"
+              },
+              "keywords": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "Keywords to match against item names and URIs"
+              }
+            },
+            "required": [
+              "folder",
+              "keywords"
+            ],
+            "additionalProperties": false,
+            "description": "A custom folder classification rule"
+          }
+        }
+      },
+      "required": [
+        "preserve_existing",
+        "enabled_categories",
+        "custom_rules"
+      ],
+      "additionalProperties": false,
+      "description": "Folder organization settings"
+    },
+    "ui": {
+      "type": "object",
+      "properties": {
+        "mask_character": {
+          "default": "•",
+          "description": "Character used to mask passwords in output",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4
+        },
+        "show_revision_date": {
+          "default": true,
+          "description": "Show item revision dates during review",
+          "type": "boolean"
+        },
+        "color_scheme": {
+          "default": "auto",
+          "description": "UI color scheme",
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ]
+        },
+        "prompt_style": {
+          "default": "clack",
+          "description": "Prompt toolkit (clack = rich TUI, plain = basic readline fallback)",
+          "type": "string",
+          "enum": [
+            "clack",
+            "plain"
+          ]
+        }
+      },
+      "required": [
+        "mask_character",
+        "show_revision_date",
+        "color_scheme",
+        "prompt_style"
+      ],
+      "additionalProperties": false,
+      "description": "User interface settings"
+    },
+    "logging": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "default": "text",
+          "description": "Log output format",
+          "type": "string",
+          "enum": [
+            "text",
+            "json"
+          ]
+        },
+        "level": {
+          "default": "info",
+          "description": "Minimum log level",
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ]
+        }
+      },
+      "required": [
+        "format",
+        "level"
+      ],
+      "additionalProperties": false,
+      "description": "Logging configuration"
+    }
+  },
+  "required": [
+    "version"
+  ],
+  "additionalProperties": false,
+  "description": "seiton configuration"
+}
