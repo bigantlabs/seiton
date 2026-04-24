@@ -89,3 +89,10 @@ export function makeFolderFinding(
 export function isFindingCategory(value: string): value is FindingCategory {
   return (FINDING_CATEGORIES as readonly string[]).includes(value);
 }
+
+export const INFORMATIONAL_CATEGORIES: readonly FindingCategory[] = ['weak', 'reuse', 'missing'];
+export const ACTIONABLE_CATEGORIES: readonly FindingCategory[] = ['duplicates', 'folders'];
+
+export function isInformationalCategory(category: FindingCategory): boolean {
+  return (INFORMATIONAL_CATEGORIES as readonly string[]).includes(category);
+}

@@ -99,4 +99,41 @@ describe('collectOpsFromFindings', () => {
     const createOps = result.ops.filter((op) => op.kind === 'create_folder');
     assert.equal(createOps.length, 1);
   });
+
+  it('skips create_folder when existingFolderId is set', () => {
+    const findings: Finding[] = [
+      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking', existingFolderId: 'folder-123' },
+    ];
+    const result = collectOpsFromFindings(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+    });
+    assert.equal(result.ops.length, 1);
+    assert.equal(result.ops[0]!.kind, 'assign_folder');
+    if (result.ops[0]!.kind === 'assign_folder') {
+      assert.equal(result.ops[0]!.folderId, 'folder-123');
+    }
+  });
+
+  it('produces no ops for informational categories (weak, reuse, missing)', () => {
+    const findings: Finding[] = [
+      { category: 'weak', item: makeItem({ id: '1' }), score: 1, reasons: ['short'] },
+      { category: 'reuse', items: [makeItem({ id: '2' }), makeItem({ id: '3' })], passwordHash: 'hash' },
+      { category: 'missing', item: makeItem({ id: '4' }), missingFields: ['password'] },
+    ];
+    const result = collectOpsFromFindings(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+    });
+    assert.equal(result.ops.length, 0);
+    assert.equal(result.reviewed, 3);
+  });
+
+  it('always returns cancelled as false', () => {
+    const result = collectOpsFromFindings([], {
+      skipCategories: [],
+      limitPerCategory: null,
+    });
+    assert.equal(result.cancelled, false);
+  });
 });

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.3.9] - 2026-04-24
+
+### Added
+- **Batch informational report**: Classified findings into "informational" (weak, reuse, missing) and "actionable" (duplicates, folders). Informational findings are now displayed in a consolidated batch report before the interactive review loop begins, instead of being prompted individually. The batch report groups findings by category and shows item details (name, URI, username, score, reasons, missing fields). Passwords are masked. If there are no informational findings, the batch section is skipped entirely. (M15)
 
 ## [0.3.8] - 2026-04-21
 

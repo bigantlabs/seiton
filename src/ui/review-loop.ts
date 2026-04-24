@@ -1,10 +1,11 @@
 import type { Finding, FindingCategory } from '../lib/domain/finding.js';
+import { isInformationalCategory } from '../lib/domain/finding.js';
 import type { PendingOp } from '../lib/domain/pending.js';
 import { makeDeleteItemOp, makeAssignFolderOp, makeCreateFolderOp } from '../lib/domain/pending.js';
 import type { Logger } from '../adapters/logging.js';
 import type { PromptAdapter } from './prompts.js';
 import type { BwItem } from '../lib/domain/types.js';
-import { maskPassword } from './mask.js';
+import { renderBatchReport } from './batch-report.js';
 
 export interface ReviewOptions {
   skipCategories: readonly string[];
@@ -76,6 +77,8 @@ export function collectOpsFromFindings(
 export interface InteractiveReviewOptions extends ReviewOptions {
   prompt: PromptAdapter;
   maskChar: string;
+  enabledCategories: readonly string[];
+  existingFoldersByName: ReadonlyMap<string, string>;
   onProgress?: (ops: readonly PendingOp[]) => void;
 }
 
@@ -89,27 +92,48 @@ export async function interactiveReview(
   let skipped = 0;
 
   const categoryCounts = new Map<FindingCategory, number>();
-  const foldersNeeded = new Set<string>();
+  const informational: Finding[] = [];
+  const actionable: Finding[] = [];
 
   for (const finding of findings) {
     if (skipCategories.includes(finding.category)) {
       skipped++;
       continue;
     }
-
     const count = categoryCounts.get(finding.category) ?? 0;
     if (limitPerCategory !== null && count >= limitPerCategory) {
       skipped++;
       continue;
     }
-
-    const action = await presentFinding(finding, prompt, maskChar, foldersNeeded);
-    if (action === 'cancel') {
-      return { ops, reviewed, skipped: skipped + (findings.length - reviewed - skipped), cancelled: true };
-    }
-    reviewed++;
     categoryCounts.set(finding.category, count + 1);
 
+    if (isInformationalCategory(finding.category)) {
+      informational.push(finding);
+    } else {
+      actionable.push(finding);
+    }
+  }
+
+  if (informational.length > 0) {
+    renderBatchReport(informational, prompt, maskChar);
+  }
+  reviewed += informational.length;
+
+  const foldersNeeded = new Set<string>();
+  const ctx: ReviewContext = {
+    prompt, maskChar, foldersNeeded,
+    enabledCategories: opts.enabledCategories,
+    existingFoldersByName: opts.existingFoldersByName,
+  };
+
+  for (let i = 0; i < actionable.length; i++) {
+    const finding = actionable[i]!;
+    const action = await presentFinding(finding, ctx);
+    if (action === 'cancel') {
+      const remaining = actionable.length - i;
+      return { ops, reviewed, skipped: skipped + remaining, cancelled: true };
+    }
+    reviewed++;
     if (action === 'skip') continue;
     for (const op of action) ops.push(op);
     onProgress?.(ops);
@@ -118,35 +142,39 @@ export async function interactiveReview(
   return { ops, reviewed, skipped, cancelled: false };
 }
 
-type FindingAction = PendingOp[] | 'skip' | 'cancel';
-
-async function presentFinding(
-  finding: Finding,
-  prompt: PromptAdapter,
-  maskChar: string,
-  foldersNeeded: Set<string>,
-): Promise<FindingAction> {
-  switch (finding.category) {
-    case 'duplicates':
-      return presentDuplicate(finding, prompt);
-    case 'weak':
-      return presentWeak(finding, prompt, maskChar);
-    case 'missing':
-      return presentMissing(finding, prompt);
-    case 'folders':
-      return presentFolder(finding, prompt, foldersNeeded);
-    case 'reuse':
-      return presentReuse(finding, prompt, maskChar);
-  }
+interface ReviewContext {
+  prompt: PromptAdapter;
+  maskChar: string;
+  foldersNeeded: Set<string>;
+  enabledCategories: readonly string[];
+  existingFoldersByName: ReadonlyMap<string, string>;
 }
 
-function itemLabel(item: BwItem): string {
+export function itemLabel(item: BwItem): string {
   const uri = item.login?.uris?.[0]?.uri;
   const user = item.login?.username;
   let label = item.name;
   if (uri) label += ` (${uri})`;
   if (user) label += ` [${user}]`;
   return label;
+}
+
+type FindingAction = PendingOp[] | 'skip' | 'cancel';
+
+async function presentFinding(
+  finding: Finding,
+  ctx: ReviewContext,
+): Promise<FindingAction> {
+  switch (finding.category) {
+    case 'duplicates':
+      return presentDuplicate(finding, ctx.prompt);
+    case 'folders':
+      return presentFolder(finding, ctx);
+    case 'weak':
+    case 'reuse':
+    case 'missing':
+      return 'skip';
+  }
 }
 
 async function presentDuplicate(
@@ -176,45 +204,15 @@ async function presentDuplicate(
   return ops;
 }
 
-async function presentWeak(
-  finding: Extract<Finding, { category: 'weak' }>,
-  prompt: PromptAdapter,
-  maskChar: string,
-): Promise<FindingAction> {
-  const masked = finding.item.login?.password
-    ? maskPassword(finding.item.login.password, maskChar)
-    : '(empty)';
-  prompt.logWarning(
-    `Weak password: ${itemLabel(finding.item)}\n  Score: ${finding.score}/4 | Password: ${masked}\n  Reasons: ${finding.reasons.join(', ')}`,
-  );
-
-  const action = await prompt.confirm('Acknowledge this finding?', true);
-  if (action === null) return 'cancel';
-  return 'skip';
-}
-
-async function presentMissing(
-  finding: Extract<Finding, { category: 'missing' }>,
-  prompt: PromptAdapter,
-): Promise<FindingAction> {
-  prompt.logWarning(
-    `Missing fields: ${itemLabel(finding.item)}\n  Fields: ${finding.missingFields.join(', ')}`,
-  );
-
-  const action = await prompt.confirm('Acknowledge this finding?', true);
-  if (action === null) return 'cancel';
-  return 'skip';
-}
-
 async function presentFolder(
   finding: Extract<Finding, { category: 'folders' }>,
-  prompt: PromptAdapter,
-  foldersNeeded: Set<string>,
+  ctx: ReviewContext,
 ): Promise<FindingAction> {
-  const action = await prompt.select<'accept' | 'skip'>(
+  const action = await ctx.prompt.select<'accept' | 'choose' | 'skip'>(
     `Assign "${itemLabel(finding.item)}" to folder "${finding.suggestedFolder}"?`,
     [
       { value: 'accept', label: 'Accept', hint: `move to ${finding.suggestedFolder}` },
+      { value: 'choose', label: 'Choose a different folder…' },
       { value: 'skip', label: 'Skip' },
     ],
   );
@@ -222,28 +220,47 @@ async function presentFolder(
   if (action === null) return 'cancel';
   if (action === 'skip') return 'skip';
 
-  const ops: PendingOp[] = [];
-  if (!finding.existingFolderId && !foldersNeeded.has(finding.suggestedFolder)) {
-    foldersNeeded.add(finding.suggestedFolder);
-    ops.push(makeCreateFolderOp(finding.suggestedFolder));
+  if (action === 'choose') {
+    return handleFolderChoice(finding, ctx);
   }
-  ops.push(makeAssignFolderOp(finding.item.id, finding.existingFolderId, finding.suggestedFolder));
-  return ops;
+
+  return buildFolderOps(
+    finding.item.id, finding.suggestedFolder,
+    finding.existingFolderId, ctx.foldersNeeded,
+  );
 }
 
-async function presentReuse(
-  finding: Extract<Finding, { category: 'reuse' }>,
-  prompt: PromptAdapter,
-  maskChar: string,
+async function handleFolderChoice(
+  finding: Extract<Finding, { category: 'folders' }>,
+  ctx: ReviewContext,
 ): Promise<FindingAction> {
-  const rawPassword = finding.items[0]?.login?.password;
-  const masked = rawPassword ? maskPassword(rawPassword, maskChar) : '(unavailable)';
-  const names = finding.items.map(i => itemLabel(i)).join('\n    ');
-  prompt.logWarning(
-    `Reused password (${masked}) across ${finding.items.length} items:\n    ${names}`,
-  );
+  const options = ctx.enabledCategories.map(name => ({
+    value: name,
+    label: name,
+    hint: name === finding.suggestedFolder ? 'suggested' : undefined,
+  }));
 
-  const action = await prompt.confirm('Acknowledge this finding?', true);
-  if (action === null) return 'cancel';
-  return 'skip';
+  const chosen = await ctx.prompt.select<string>(
+    `Select a folder for "${itemLabel(finding.item)}":`,
+    options,
+  );
+  if (chosen === null) return 'cancel';
+
+  const existingId = ctx.existingFoldersByName.get(chosen.toLowerCase()) ?? null;
+  return buildFolderOps(finding.item.id, chosen, existingId, ctx.foldersNeeded);
+}
+
+function buildFolderOps(
+  itemId: string,
+  folderName: string,
+  existingFolderId: string | null,
+  foldersNeeded: Set<string>,
+): PendingOp[] {
+  const ops: PendingOp[] = [];
+  if (!existingFolderId && !foldersNeeded.has(folderName)) {
+    foldersNeeded.add(folderName);
+    ops.push(makeCreateFolderOp(folderName));
+  }
+  ops.push(makeAssignFolderOp(itemId, existingFolderId, folderName));
+  return ops;
 }

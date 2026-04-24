@@ -21,7 +21,7 @@ These flags are accepted by every command:
 
 ## `seiton audit`
 
-The primary command. Fetches your vault, runs all five analyzers, presents findings interactively, and applies approved changes through `bw`. This is the default command when you run `seiton` with no subcommand.
+The primary command. Fetches your vault, runs all five analyzers, and reviews findings. Informational findings (weak passwords, reused passwords, missing fields) are displayed in a consolidated batch report. Actionable findings (duplicates, folder suggestions) are presented interactively — you approve or reject each one. For folder suggestions, you can Accept the suggestion, Choose a different folder from your configured categories, or Skip. Approved changes are applied through `bw`. This is the default command when you run `seiton` with no subcommand.
 
 ```bash
 seiton audit [flags]

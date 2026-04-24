@@ -32,7 +32,12 @@ Analysis is pure computation with no side effects. The same vault input always p
 
 ### 3. Review
 
-Each finding is presented interactively. You approve or reject proposed changes one at a time — there is no `--force` or `--yes-to-all` flag. Approved actions are queued as pending operations.
+Findings are split into two groups:
+
+- **Informational findings** (weak passwords, reused passwords, missing fields) are displayed in a consolidated batch report before the interactive loop. These are FYI-only — seiton does not generate or rotate passwords.
+- **Actionable findings** (duplicates, folder suggestions) are presented one at a time. You approve or reject each proposed change individually — there is no `--force` or `--yes-to-all` flag.
+
+For folder suggestions, you can Accept the suggestion, Choose a different folder from your configured categories, or Skip. Approved actions are queued as pending operations.
 
 You can skip entire categories with `--skip <category>` or cap the number of findings per category with `--limit <n>`.
 

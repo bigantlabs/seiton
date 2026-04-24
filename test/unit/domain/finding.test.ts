@@ -2,7 +2,10 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   FINDING_CATEGORIES,
+  INFORMATIONAL_CATEGORIES,
+  ACTIONABLE_CATEGORIES,
   isFindingCategory,
+  isInformationalCategory,
   makeDuplicateFinding,
   makeReuseFinding,
   makeWeakFinding,
@@ -85,10 +88,45 @@ describe('Finding construction', () => {
     assert.deepEqual([...finding.missingFields], ['password', 'uri']);
   });
 
-  it('constructs FolderFinding', () => {
+  it('constructs FolderFinding with default null existingFolderId', () => {
     const finding = makeFolderFinding(STUB_ITEM, 'Development');
     assert.equal(finding.category, 'folders');
     assert.equal(finding.suggestedFolder, 'Development');
+    assert.equal(finding.existingFolderId, null);
+  });
+
+  it('constructs FolderFinding with explicit existingFolderId', () => {
+    const finding = makeFolderFinding(STUB_ITEM, 'Development', 'folder-xyz');
+    assert.equal(finding.category, 'folders');
+    assert.equal(finding.suggestedFolder, 'Development');
+    assert.equal(finding.existingFolderId, 'folder-xyz');
+  });
+});
+
+describe('finding classification', () => {
+  it('classifies weak, reuse, and missing as informational', () => {
+    assert.equal(isInformationalCategory('weak'), true);
+    assert.equal(isInformationalCategory('reuse'), true);
+    assert.equal(isInformationalCategory('missing'), true);
+  });
+
+  it('classifies duplicates and folders as actionable', () => {
+    assert.equal(isInformationalCategory('duplicates'), false);
+    assert.equal(isInformationalCategory('folders'), false);
+  });
+
+  it('INFORMATIONAL_CATEGORIES contains weak, reuse, missing', () => {
+    assert.deepEqual([...INFORMATIONAL_CATEGORIES], ['weak', 'reuse', 'missing']);
+  });
+
+  it('ACTIONABLE_CATEGORIES contains duplicates, folders', () => {
+    assert.deepEqual([...ACTIONABLE_CATEGORIES], ['duplicates', 'folders']);
+  });
+
+  it('informational + actionable covers all categories', () => {
+    const all = [...INFORMATIONAL_CATEGORIES, ...ACTIONABLE_CATEGORIES].sort();
+    const expected = [...FINDING_CATEGORIES].sort();
+    assert.deepEqual(all, expected);
   });
 });
 

@@ -102,6 +102,10 @@ async function executeAuditPipeline(
   }
 
   const items = itemsResult.data;
+  const existingFoldersByName = new Map<string, string>();
+  for (const folder of foldersResult.data) {
+    existingFoldersByName.set(folder.name.toLowerCase(), folder.id);
+  }
   fetchSpin.stop(`Fetched ${items.length} items, ${foldersResult.data.length} folders`);
 
   logger.info('audit: analyzing');
@@ -126,6 +130,8 @@ async function executeAuditPipeline(
     prompt,
     maskChar: config.ui.mask_character,
     dryRun,
+    enabledCategories: config.folders.enabled_categories,
+    existingFoldersByName,
     onProgress: (ops) => setPendingOps([...ops]),
   });
 
@@ -222,6 +228,8 @@ interface RunReviewOpts {
   prompt: PromptAdapter;
   maskChar: string;
   dryRun: boolean;
+  enabledCategories: readonly string[];
+  existingFoldersByName: ReadonlyMap<string, string>;
   onProgress?: (ops: readonly PendingOp[]) => void;
 }
 
@@ -243,6 +251,8 @@ async function runReview(
     logger: opts.logger,
     prompt: opts.prompt,
     maskChar: opts.maskChar,
+    enabledCategories: opts.enabledCategories,
+    existingFoldersByName: opts.existingFoldersByName,
     onProgress: opts.onProgress,
   });
 }
