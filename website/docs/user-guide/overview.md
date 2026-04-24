@@ -43,7 +43,14 @@ You can skip entire categories with `--skip <category>` or cap the number of fin
 
 ### 4. Apply
 
-Approved changes are applied serially through `bw`. Each operation (delete item, create folder, assign folder) is executed one at a time. If an operation fails, remaining operations are saved to the pending queue for later retry with `seiton resume`.
+Approved changes are applied serially through `bw` in three phases: folder creation, folder assignment, then item deletion. A live status line updates with each operation so you can follow progress:
+
+```
+Creating folder 3/5 — Development
+Assigning folder 12/30 — Banking & Finance [1 failed]
+```
+
+When the phase completes, a timed breakdown summary shows how long each phase took and how many operations succeeded or failed. If any operation fails, remaining operations are saved to the pending queue for later retry with `seiton resume`.
 
 Use `--dry-run` to see what would be changed without applying anything.
 

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.3.11] - 2026-04-24
+
+### Added
+- Milestone 18: Live progress for the apply phase. (M18)
 
 ## [0.3.10] - 2026-04-24
 

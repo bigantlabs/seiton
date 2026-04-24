@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyOps } from '../../../src/commands/apply.js';
+import { applyOps, type ApplyProgress } from '../../../src/commands/apply.js';
 import type { PendingOp } from '../../../src/lib/domain/pending.js';
 import { makeBwError, BwErrorCode } from '../../../src/lib/domain/types.js';
 import { makeFakeAdapter } from '../../helpers/fake-adapter.js';
@@ -115,5 +115,81 @@ describe('applyOps', () => {
     assert.equal(appliedOps.length, 0);
     assert.equal(result.applied, 0);
     assert.equal(result.failed.length, 2);
+  });
+
+  it('returns timings in result', async () => {
+    const ops: PendingOp[] = [
+      { kind: 'create_folder', folderName: 'Dev' },
+      { kind: 'assign_folder', itemId: 'item-1', folderId: 'f1', folderName: 'Dev' },
+      { kind: 'delete_item', itemId: 'item-2' },
+    ];
+    const bw = makeFakeAdapter();
+    const result = await applyOps(ops, 'session', bw);
+    assert.ok(result.timings);
+    assert.equal(result.timings.create_folder.count, 1);
+    assert.equal(result.timings.assign_folder.count, 1);
+    assert.equal(result.timings.delete_item.count, 1);
+    assert.ok(result.timings.totalDurationMs >= 0);
+    assert.ok(result.timings.create_folder.durationMs >= 0);
+    assert.ok(result.timings.assign_folder.durationMs >= 0);
+    assert.ok(result.timings.delete_item.durationMs >= 0);
+  });
+
+  it('returns zero-count timings for empty ops', async () => {
+    const bw = makeFakeAdapter();
+    const result = await applyOps([], 'session', bw);
+    assert.equal(result.timings.create_folder.count, 0);
+    assert.equal(result.timings.assign_folder.count, 0);
+    assert.equal(result.timings.delete_item.count, 0);
+    assert.ok(result.timings.totalDurationMs >= 0);
+  });
+
+  it('invokes onProgress before each operation', async () => {
+    const ops: PendingOp[] = [
+      { kind: 'create_folder', folderName: 'Dev' },
+      { kind: 'assign_folder', itemId: 'item-1', folderId: 'f1', folderName: 'Social' },
+      { kind: 'delete_item', itemId: 'item-2' },
+    ];
+    const events: ApplyProgress[] = [];
+    const bw = makeFakeAdapter();
+    await applyOps(ops, 'session', bw, undefined, undefined, (p) => {
+      events.push({ ...p });
+    });
+    assert.equal(events.length, 3);
+
+    assert.equal(events[0].phase, 'create_folder');
+    assert.equal(events[0].current, 1);
+    assert.equal(events[0].phaseTotal, 1);
+    assert.equal(events[0].overallCurrent, 1);
+    assert.equal(events[0].overallTotal, 3);
+    assert.equal(events[0].description, 'Dev');
+
+    assert.equal(events[1].phase, 'assign_folder');
+    assert.equal(events[1].current, 1);
+    assert.equal(events[1].overallCurrent, 2);
+    assert.equal(events[1].description, 'Social');
+
+    assert.equal(events[2].phase, 'delete_item');
+    assert.equal(events[2].current, 1);
+    assert.equal(events[2].overallCurrent, 3);
+    assert.equal(events[2].description, 'item-2');
+  });
+
+  it('reports accumulated failure count in onProgress', async () => {
+    const ops: PendingOp[] = [
+      { kind: 'create_folder', folderName: 'A' },
+      { kind: 'create_folder', folderName: 'B' },
+      { kind: 'delete_item', itemId: 'item-1' },
+    ];
+    const events: ApplyProgress[] = [];
+    const bw = makeFakeAdapter({
+      createFolder: async () => ({ ok: false, error: makeBwError(BwErrorCode.UNKNOWN, 'fail') }),
+    });
+    await applyOps(ops, 'session', bw, undefined, undefined, (p) => {
+      events.push({ ...p });
+    });
+    assert.equal(events[0].failedSoFar, 0);
+    assert.equal(events[1].failedSoFar, 1);
+    assert.equal(events[2].failedSoFar, 2);
   });
 });

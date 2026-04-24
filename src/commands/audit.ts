@@ -10,6 +10,7 @@ import { ExitCode } from '../exit-codes.js';
 import { VERSION } from '../version.js';
 import { runPreflight } from './preflight.js';
 import { applyOps } from './apply.js';
+import { formatProgressMessage, formatApplySummary } from './apply-progress.js';
 import { collectOpsFromFindings, interactiveReview, type RuleSaveRequest } from '../ui/review-loop.js';
 import { savePendingOps, resolvePendingPath } from './pending-io.js';
 import { registerCleanup } from '../core/signals.js';
@@ -200,10 +201,15 @@ async function executeAuditPipeline(
   const applyResult = await applyOps(reviewResult.ops, session, bw, logger, (applied) => {
     pendingSet.delete(applied);
     setPendingOps([...pendingSet]);
+  }, (progress) => {
+    applySpin.message(formatProgressMessage(progress));
   });
+
+  const summary = formatApplySummary(applyResult.timings, applyResult.failed.length);
 
   if (applyResult.failed.length > 0 || applyResult.remaining.length > 0) {
     applySpin.error(`${applyResult.applied} applied, ${applyResult.failed.length} failed, ${applyResult.remaining.length} remaining`);
+    prompt.logStep(summary);
     const persist = [...applyResult.failed, ...applyResult.remaining];
     const saved = await savePendingOps(persist, pendingPath, fs, clock, logger);
     setPendingOps([]);
@@ -216,6 +222,7 @@ async function executeAuditPipeline(
   }
 
   applySpin.stop(`${applyResult.applied} operations applied`);
+  prompt.logStep(summary);
   setPendingOps([]);
 
   try {

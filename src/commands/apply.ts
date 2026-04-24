@@ -1,11 +1,35 @@
+import { performance } from 'node:perf_hooks';
 import type { BwAdapter } from '../lib/bw.js';
-import type { PendingOp } from '../lib/domain/pending.js';
+import type { PendingOp, PendingOpKind } from '../lib/domain/pending.js';
 import type { Logger } from '../adapters/logging.js';
+
+export interface ApplyProgress {
+  phase: PendingOpKind;
+  current: number;
+  phaseTotal: number;
+  overallCurrent: number;
+  overallTotal: number;
+  description: string;
+  failedSoFar: number;
+}
+
+export interface PhaseTiming {
+  count: number;
+  durationMs: number;
+}
+
+export interface ApplyTimings {
+  create_folder: PhaseTiming;
+  assign_folder: PhaseTiming;
+  delete_item: PhaseTiming;
+  totalDurationMs: number;
+}
 
 export interface ApplyResult {
   applied: number;
   failed: PendingOp[];
   remaining: PendingOp[];
+  timings: ApplyTimings;
 }
 
 export async function applyOps(
@@ -14,6 +38,7 @@ export async function applyOps(
   bw: BwAdapter,
   logger?: Logger,
   onApplied?: (op: PendingOp) => void,
+  onProgress?: (progress: ApplyProgress) => void,
 ): Promise<ApplyResult> {
   const remaining = [...ops];
   const failed: PendingOp[] = [];
@@ -24,8 +49,24 @@ export async function applyOps(
   const deleteOps = remaining.filter((op) => op.kind === 'delete_item');
 
   const folderIdMap = new Map<string, string>();
+  const totalOps = ops.length;
+  let overallIdx = 0;
 
-  for (const op of createOps) {
+  const timings: ApplyTimings = {
+    create_folder: { count: createOps.length, durationMs: 0 },
+    assign_folder: { count: assignOps.length, durationMs: 0 },
+    delete_item: { count: deleteOps.length, durationMs: 0 },
+    totalDurationMs: 0,
+  };
+
+  const totalStart = performance.now();
+
+  const phaseStart1 = performance.now();
+  for (let i = 0; i < createOps.length; i++) {
+    const op = createOps[i];
+    overallIdx++;
+    onProgress?.({ phase: 'create_folder', current: i + 1, phaseTotal: createOps.length, overallCurrent: overallIdx, overallTotal: totalOps, description: op.folderName, failedSoFar: failed.length });
+
     const idx = remaining.indexOf(op);
     if (idx >= 0) remaining.splice(idx, 1);
 
@@ -41,8 +82,14 @@ export async function applyOps(
       failed.push(op);
     }
   }
+  timings.create_folder.durationMs = performance.now() - phaseStart1;
 
-  for (const op of assignOps) {
+  const phaseStart2 = performance.now();
+  for (let i = 0; i < assignOps.length; i++) {
+    const op = assignOps[i];
+    overallIdx++;
+    onProgress?.({ phase: 'assign_folder', current: i + 1, phaseTotal: assignOps.length, overallCurrent: overallIdx, overallTotal: totalOps, description: op.folderName, failedSoFar: failed.length });
+
     const idx = remaining.indexOf(op);
     if (idx >= 0) remaining.splice(idx, 1);
 
@@ -78,8 +125,14 @@ export async function applyOps(
       failed.push(persistOp);
     }
   }
+  timings.assign_folder.durationMs = performance.now() - phaseStart2;
 
-  for (const op of deleteOps) {
+  const phaseStart3 = performance.now();
+  for (let i = 0; i < deleteOps.length; i++) {
+    const op = deleteOps[i];
+    overallIdx++;
+    onProgress?.({ phase: 'delete_item', current: i + 1, phaseTotal: deleteOps.length, overallCurrent: overallIdx, overallTotal: totalOps, description: op.itemId, failedSoFar: failed.length });
+
     const idx = remaining.indexOf(op);
     if (idx >= 0) remaining.splice(idx, 1);
 
@@ -93,6 +146,9 @@ export async function applyOps(
       failed.push(op);
     }
   }
+  timings.delete_item.durationMs = performance.now() - phaseStart3;
 
-  return { applied, failed, remaining };
+  timings.totalDurationMs = performance.now() - totalStart;
+
+  return { applied, failed, remaining, timings };
 }
