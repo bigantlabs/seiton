@@ -2,22 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { collectOpsFromFindings } from '../../../src/ui/review-loop.js';
 import type { Finding } from '../../../src/lib/domain/finding.js';
-import type { BwItem } from '../../../src/lib/domain/types.js';
-
-function makeItem(overrides: Partial<BwItem> = {}): BwItem {
-  return {
-    id: 'test-id',
-    organizationId: null,
-    folderId: null,
-    type: 1,
-    name: 'Test Item',
-    notes: null,
-    favorite: false,
-    login: { uris: null, username: 'user', password: 'pass', totp: null },
-    revisionDate: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
+import { makeItem } from '../../helpers/make-item.js';
 
 describe('collectOpsFromFindings', () => {
   it('returns empty ops for empty findings', () => {

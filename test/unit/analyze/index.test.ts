@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeItems, type AnalysisConfig } from '../../../src/lib/analyze/index.js';
-import type { BwItem } from '../../../src/lib/domain/types.js';
+import { makeItem } from '../../helpers/make-item.js';
 
 function makeConfig(overrides?: Partial<AnalysisConfig>): AnalysisConfig {
   return {
@@ -27,26 +27,6 @@ function makeConfig(overrides?: Partial<AnalysisConfig>): AnalysisConfig {
   };
 }
 
-function makeItem(overrides: Partial<BwItem> = {}): BwItem {
-  return {
-    id: 'test-id',
-    organizationId: null,
-    folderId: null,
-    type: 1,
-    name: 'Test Item',
-    notes: null,
-    favorite: false,
-    login: {
-      uris: [{ match: null, uri: 'https://example.com' }],
-      username: 'user',
-      password: 'Str0ng!Passw0rd',
-      totp: null,
-    },
-    revisionDate: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-
 describe('analyzeItems', () => {
   it('returns empty findings for empty items', () => {
     const findings = analyzeItems([], makeConfig());
@@ -54,7 +34,7 @@ describe('analyzeItems', () => {
   });
 
   it('returns empty findings for items with no issues', () => {
-    const items = [makeItem({ id: '1' })];
+    const items = [makeItem({ id: '1', login: { uris: [{ match: null, uri: 'https://example.com' }], username: 'user', password: 'Str0ng!Passw0rd', totp: null } })];
     const findings = analyzeItems(items, makeConfig());
     const nonFolder = findings.filter((f) => f.category !== 'folders');
     assert.equal(nonFolder.length, 0);

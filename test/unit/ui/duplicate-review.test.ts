@@ -3,22 +3,7 @@ import assert from 'node:assert/strict';
 import { presentAllDuplicates, formatRevisionHint, formatItemHint } from '../../../src/ui/duplicate-review.js';
 import type { PromptAdapter, SpinnerHandle } from '../../../src/ui/prompts.js';
 import type { DuplicateFinding } from '../../../src/lib/domain/finding.js';
-import type { BwItem } from '../../../src/lib/domain/types.js';
-
-function makeItem(overrides: Partial<BwItem> = {}): BwItem {
-  return {
-    id: 'test-id',
-    organizationId: null,
-    folderId: null,
-    type: 1,
-    name: 'Test Item',
-    notes: null,
-    favorite: false,
-    login: { uris: [{ match: null, uri: 'https://example.com' }], username: 'user', password: 'pass', totp: null },
-    revisionDate: '2024-01-15T00:00:00.000Z',
-    ...overrides,
-  };
-}
+import { makeItem } from '../../helpers/make-item.js';
 
 interface MockConfig {
   multiselectResponses?: (number[] | null)[];

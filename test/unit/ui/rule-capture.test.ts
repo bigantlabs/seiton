@@ -4,21 +4,7 @@ import { formatMatchReason, extractRuleKeyword, offerRuleCapture } from '../../.
 import type { BwItem } from '../../../src/lib/domain/types.js';
 import type { PromptAdapter } from '../../../src/ui/prompts.js';
 import type { RuleSaveRequest } from '../../../src/ui/review-loop.js';
-
-function makeItem(overrides: Partial<BwItem> = {}): BwItem {
-  return {
-    id: 'test-id',
-    organizationId: null,
-    folderId: null,
-    type: 1,
-    name: 'Test Item',
-    notes: null,
-    favorite: false,
-    login: { uris: [{ match: null, uri: 'https://example.com' }], username: 'user', password: 'pass', totp: null },
-    revisionDate: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
+import { makeItem } from '../../helpers/make-item.js';
 
 function makeFakePrompt(selectReturn: unknown): PromptAdapter {
   return {
