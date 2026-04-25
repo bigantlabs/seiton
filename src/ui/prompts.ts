@@ -153,12 +153,20 @@ function createPlainAdapter(): PromptAdapter {
       finally { rl.close(); }
     },
 
-    async multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean, _initialValues?: T[]): Promise<T[] | null> {
+    async multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean, initialValues?: T[]): Promise<T[] | null> {
       if (isShuttingDown()) return null;
       const rl = createInterface({ input: process.stdin, output: process.stdout });
       try {
         const lines = options.map((o, i) => `  ${i + 1}) ${o.label}${o.hint ? ` (${o.hint})` : ''}`);
-        process.stdout.write(`${message} (comma-separated numbers)\n${lines.join('\n')}\n`);
+        let header = `${message} (comma-separated numbers)`;
+        if (initialValues && initialValues.length > 0) {
+          const initial = new Set(initialValues);
+          const prev = options
+            .map((o, i) => (initial.has(o.value) ? i + 1 : 0))
+            .filter(n => n > 0);
+          if (prev.length > 0) header += `\n[previously selected: ${prev.join(', ')}]`;
+        }
+        process.stdout.write(`${header}\n${lines.join('\n')}\n`);
         while (true) {
           const answer = await new Promise<string>((resolve, reject) => {
             const onClose = () => reject(new Error('cancelled'));

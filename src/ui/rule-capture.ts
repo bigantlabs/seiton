@@ -37,7 +37,7 @@ export async function offerRuleCapture(
     ],
   );
 
-  if (answer === 'never') return 'suppressed';
+  if (answer === null || answer === 'never') return 'suppressed';
   if (answer === 'yes') {
     await onRuleSave({ folder: chosenFolder, keyword });
     return 'saved';

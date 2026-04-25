@@ -15,8 +15,9 @@ const SUMMARY_LABELS: Record<ApplyProgress['phase'], string> = {
 const MAX_DESC_LENGTH = 30;
 
 function truncate(text: string, maxLen: number): string {
-  if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen - 1) + '…';
+  const chars = Array.from(text);
+  if (chars.length <= maxLen) return text;
+  return chars.slice(0, maxLen - 1).join('') + '…';
 }
 
 function formatDuration(ms: number): string {
@@ -52,7 +53,8 @@ export function formatApplySummary(timings: ApplyTimings, totalFailed: number): 
   const totalDuration = formatDuration(timings.totalDurationMs);
   const totalOps = timings.create_folder.count + timings.assign_folder.count + timings.delete_item.count;
   const failSuffix = totalFailed > 0 ? ` (${totalFailed} failed)` : '';
-  lines.push(`  Total: ${totalOps} ops in ${totalDuration}${failSuffix}`);
+  const opsWord = totalOps === 1 ? 'op' : 'ops';
+  lines.push(`  Total: ${totalOps} ${opsWord} in ${totalDuration}${failSuffix}`);
 
   return lines.join('\n');
 }

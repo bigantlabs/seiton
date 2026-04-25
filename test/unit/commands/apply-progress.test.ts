@@ -114,7 +114,7 @@ describe('formatApplySummary', () => {
     };
     const summary = formatApplySummary(timings, 0);
     assert.ok(summary.includes('Created folders: 1 in 150ms'));
-    assert.ok(summary.includes('Total: 1 ops in 150ms'));
+    assert.ok(summary.includes('Total: 1 op in 150ms'));
   });
 
   it('handles all-failed scenario', () => {

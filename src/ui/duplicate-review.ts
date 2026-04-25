@@ -3,7 +3,7 @@ import type { PendingOp } from '../lib/domain/pending.js';
 import { makeDeleteItemOp } from '../lib/domain/pending.js';
 import type { PromptAdapter } from './prompts.js';
 import type { BwItem } from '../lib/domain/types.js';
-import { itemLabel } from './review-loop.js';
+import { itemLabel } from './item-label.js';
 
 export interface DuplicateReviewResult {
   ops: PendingOp[];
@@ -15,7 +15,7 @@ export function formatRevisionHint(item: BwItem): string {
   if (!raw) return 'revised: unknown';
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return 'revised: unknown';
-  return `revised: ${raw.slice(0, 10)}`;
+  return `revised: ${d.toISOString().slice(0, 10)}`;
 }
 
 export function formatItemHint(

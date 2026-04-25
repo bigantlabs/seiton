@@ -111,7 +111,7 @@ describe('offerRuleCapture', () => {
     assert.equal(saved.length, 0);
   });
 
-  it('returns declined when prompt.select returns null (Ctrl+C)', async () => {
+  it('returns suppressed when prompt.select returns null (Ctrl+C)', async () => {
     const saved: RuleSaveRequest[] = [];
     const result = await offerRuleCapture(
       makeItem(),
@@ -119,7 +119,7 @@ describe('offerRuleCapture', () => {
       makeFakePrompt(null),
       async (req) => { saved.push(req); },
     );
-    assert.equal(result, 'declined');
+    assert.equal(result, 'suppressed');
     assert.equal(saved.length, 0);
   });
 });

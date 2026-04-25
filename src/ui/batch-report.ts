@@ -1,6 +1,6 @@
 import type { Finding, FindingCategory } from '../lib/domain/finding.js';
 import type { PromptAdapter } from './prompts.js';
-import { itemLabel } from './review-loop.js';
+import { itemLabel } from './item-label.js';
 import { maskPassword } from './mask.js';
 
 interface CategoryView {

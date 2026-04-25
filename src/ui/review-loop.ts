@@ -4,10 +4,12 @@ import type { PendingOp } from '../lib/domain/pending.js';
 import { makeDeleteItemOp, makeAssignFolderOp, makeCreateFolderOp } from '../lib/domain/pending.js';
 import type { Logger } from '../adapters/logging.js';
 import type { PromptAdapter } from './prompts.js';
-import type { BwItem } from '../lib/domain/types.js';
 import { renderBatchReport } from './batch-report.js';
 import { formatMatchReason, offerRuleCapture } from './rule-capture.js';
 import { presentAllDuplicates } from './duplicate-review.js';
+import { itemLabel } from './item-label.js';
+
+export { itemLabel };
 
 export interface ReviewOptions {
   skipCategories: readonly string[];
@@ -175,15 +177,6 @@ interface ReviewContext {
   existingFoldersByName: ReadonlyMap<string, string>;
   onRuleSave?: (request: RuleSaveRequest) => Promise<void>;
   ruleCaptureSuppressed: boolean;
-}
-
-export function itemLabel(item: BwItem): string {
-  const uri = item.login?.uris?.[0]?.uri;
-  const user = item.login?.username;
-  let label = item.name;
-  if (uri) label += ` (${uri})`;
-  if (user) label += ` [${user}]`;
-  return label;
 }
 
 type FindingAction = PendingOp[] | 'skip' | 'cancel';

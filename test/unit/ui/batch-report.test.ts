@@ -115,8 +115,9 @@ describe('renderBatchReport', () => {
   });
 
   it('masks passwords in weak findings output', async () => {
-    const item = makeItem();
-    item.login!.password = 'secret123';
+    const item = makeItem({
+      login: { uris: [{ match: null, uri: 'https://example.com' }], username: 'user', password: 'secret123', totp: null },
+    });
     const findings: Finding[] = [
       { category: 'weak', item, score: 1, reasons: ['short'] },
     ];

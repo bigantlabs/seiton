@@ -33,8 +33,13 @@ export async function addCustomRule(
   folders['custom_rules'] = existingRules;
   data['folders'] = folders;
 
-  logger?.info('config: adding custom rule', { folder: rule.folder });
-  return writeConfigFile(configFilePath, data);
+  const writeResult = await writeConfigFile(configFilePath, data);
+  if (writeResult.ok) {
+    logger?.info('config: added custom rule', { folder: rule.folder });
+  } else {
+    logger?.error('config: failed to add custom rule', { folder: rule.folder, error: writeResult.error });
+  }
+  return writeResult;
 }
 
 function ensureObject(
