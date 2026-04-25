@@ -127,7 +127,7 @@ export async function interactiveReview(
   }
 
   if (informational.length > 0) {
-    renderBatchReport(informational, prompt, maskChar);
+    await renderBatchReport(informational, prompt, maskChar);
   }
   reviewed += informational.length;
 

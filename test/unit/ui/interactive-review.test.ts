@@ -171,7 +171,7 @@ describe('interactiveReview', () => {
       { category: 'folders', item: makeItem({ id: '2' }), suggestedFolder: 'Banking', existingFolderId: null, matchReason: { matchedKeyword: 'bank', ruleSource: 'builtin' } },
       { category: 'missing', item: makeItem({ id: '3' }), missingFields: ['username'] },
     ];
-    const result = await interactiveReview(findings, opts({ prompt: makeMockPrompt([0]) }));
+    const result = await interactiveReview(findings, opts({ prompt: makeMockPrompt([null, 0]) }));
     assert.equal(result.reviewed, 3);
     assert.equal(result.ops.length, 2);
   });
