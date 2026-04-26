@@ -352,6 +352,34 @@ describe('interactiveReview', () => {
       assert.equal(result.ops[0]!.folderId, 'folder-abc');
     }
   });
+
+  it('uses fallback path when promptStyle is plain', async () => {
+    const findings: Finding[] = [
+      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking', existingFolderId: null, matchReason: { matchedKeyword: 'bank', ruleSource: 'builtin' } },
+    ];
+    const result = await interactiveReview(findings, opts({
+      prompt: makeMockPrompt([0]),
+      promptStyle: 'plain',
+      isTTY: () => true,
+    }));
+    assert.equal(result.ops.length, 2);
+    assert.equal(result.ops[0]!.kind, 'create_folder');
+    assert.equal(result.ops[1]!.kind, 'assign_folder');
+    assert.equal(result.reviewed, 1);
+  });
+
+  it('uses fallback path when isTTY returns false', async () => {
+    const findings: Finding[] = [
+      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking', existingFolderId: null, matchReason: { matchedKeyword: 'bank', ruleSource: 'builtin' } },
+    ];
+    const result = await interactiveReview(findings, opts({
+      prompt: makeMockPrompt([0]),
+      promptStyle: 'clack',
+      isTTY: () => false,
+    }));
+    assert.equal(result.ops.length, 2);
+    assert.equal(result.reviewed, 1);
+  });
 });
 
 describe('itemLabel', () => {

@@ -3,11 +3,15 @@ import { isInformationalCategory } from '../lib/domain/finding.js';
 import type { PendingOp } from '../lib/domain/pending.js';
 import { makeDeleteItemOp, makeAssignFolderOp, makeCreateFolderOp } from '../lib/domain/pending.js';
 import type { Logger } from '../adapters/logging.js';
-import type { PromptAdapter } from './prompts.js';
+import type { PromptAdapter, PromptStyle } from './prompts.js';
 import { renderBatchReport } from './batch-report.js';
-import { formatMatchReason, offerRuleCapture } from './rule-capture.js';
 import { presentAllDuplicates } from './duplicate-review.js';
+import { runFolderPage } from './folder-page-loop.js';
+import { presentFoldersFallback } from './folder-page-fallback.js';
+import { buildFolderOps } from './folder-page-ops.js';
 import { itemLabel } from './item-label.js';
+
+export { buildFolderOps };
 
 export { itemLabel };
 
@@ -86,10 +90,14 @@ export interface RuleSaveRequest {
 
 export interface InteractiveReviewOptions extends ReviewOptions {
   prompt: PromptAdapter;
+  promptStyle?: PromptStyle;
   maskChar: string;
   enabledCategories: readonly string[];
   existingFoldersByName: ReadonlyMap<string, string>;
   folderNamesById?: ReadonlyMap<string, string>;
+  stdin?: NodeJS.ReadStream;
+  stdout?: NodeJS.WriteStream;
+  isTTY?: () => boolean;
   onProgress?: (ops: readonly PendingOp[]) => void;
   onRuleSave?: (request: RuleSaveRequest) => Promise<void>;
 }
@@ -148,115 +156,34 @@ export async function interactiveReview(
     }
   }
 
-  const foldersNeeded = new Set<string>();
-  const ctx: ReviewContext = {
-    prompt, maskChar, foldersNeeded,
-    enabledCategories: opts.enabledCategories,
-    existingFoldersByName: opts.existingFoldersByName,
-    onRuleSave: opts.onRuleSave,
-    ruleCaptureSuppressed: false,
-  };
+  if (folders.length > 0) {
+    const ttyCheck = opts.isTTY ?? (() => false);
+    const usePageDisplay = opts.promptStyle !== 'plain' && ttyCheck();
 
-  for (let i = 0; i < folders.length; i++) {
-    const finding = folders[i]!;
-    const action = await presentFolder(finding, ctx);
-    if (action === 'cancel') {
-      const remaining = folders.length - i;
-      return { ops, reviewed, skipped: skipped + remaining, cancelled: true };
+    if (usePageDisplay) {
+      const pageResult = await runFolderPage(
+        folders,
+        opts.existingFoldersByName,
+        prompt,
+        opts.stdin!,
+        opts.stdout!,
+      );
+      if (pageResult.cancelled) {
+        return { ops, reviewed, skipped: skipped + folders.length, cancelled: true };
+      }
+      for (const op of pageResult.ops) ops.push(op);
+      reviewed += folders.length;
+      if (pageResult.ops.length > 0) onProgress?.(ops);
+    } else {
+      const folderOps = await presentFoldersFallback(folders, opts);
+      if (folderOps.cancelled) {
+        return { ops, reviewed, skipped: skipped + folderOps.remaining, cancelled: true };
+      }
+      for (const op of folderOps.ops) ops.push(op);
+      reviewed += folderOps.reviewed;
+      if (folderOps.ops.length > 0) onProgress?.(ops);
     }
-    reviewed++;
-    if (action === 'skip') continue;
-    for (const op of action) ops.push(op);
-    onProgress?.(ops);
   }
 
   return { ops, reviewed, skipped, cancelled: false };
-}
-
-interface ReviewContext {
-  prompt: PromptAdapter;
-  maskChar: string;
-  foldersNeeded: Set<string>;
-  enabledCategories: readonly string[];
-  existingFoldersByName: ReadonlyMap<string, string>;
-  onRuleSave?: (request: RuleSaveRequest) => Promise<void>;
-  ruleCaptureSuppressed: boolean;
-}
-
-type FindingAction = PendingOp[] | 'skip' | 'cancel';
-
-async function presentFolder(
-  finding: Extract<Finding, { category: 'folders' }>,
-  ctx: ReviewContext,
-): Promise<FindingAction> {
-  const reason = formatMatchReason(finding.matchReason);
-  const action = await ctx.prompt.select<'accept' | 'choose' | 'skip'>(
-    `Assign "${itemLabel(finding.item)}" to folder "${finding.suggestedFolder}"? (${reason})`,
-    [
-      { value: 'accept', label: 'Accept', hint: `move to ${finding.suggestedFolder}` },
-      { value: 'choose', label: 'Choose a different folder…' },
-      { value: 'skip', label: 'Skip' },
-    ],
-  );
-
-  if (action === null) return 'cancel';
-  if (action === 'skip') return 'skip';
-
-  if (action === 'choose') {
-    return handleFolderChoice(finding, ctx);
-  }
-
-  return buildFolderOps(
-    finding.item.id, finding.suggestedFolder,
-    finding.existingFolderId, ctx.foldersNeeded,
-  );
-}
-
-async function handleFolderChoice(
-  finding: Extract<Finding, { category: 'folders' }>,
-  ctx: ReviewContext,
-): Promise<FindingAction> {
-  if (ctx.enabledCategories.length === 0) {
-    ctx.prompt.logInfo('No folder categories are enabled — skipping folder choice.');
-    return 'skip';
-  }
-
-  const categories = ctx.enabledCategories.includes(finding.suggestedFolder)
-    ? ctx.enabledCategories
-    : [finding.suggestedFolder, ...ctx.enabledCategories];
-
-  const options = categories.map(name => ({
-    value: name,
-    label: name,
-    hint: name === finding.suggestedFolder ? 'suggested' : undefined,
-  }));
-
-  const chosen = await ctx.prompt.select<string>(
-    `Select a folder for "${itemLabel(finding.item)}":`,
-    options,
-  );
-  if (chosen === null) return 'cancel';
-
-  if (ctx.onRuleSave && !ctx.ruleCaptureSuppressed && chosen !== finding.suggestedFolder) {
-    const result = await offerRuleCapture(finding.item, chosen, ctx.prompt, ctx.onRuleSave);
-    if (result === 'suppressed') ctx.ruleCaptureSuppressed = true;
-  }
-
-  const existingId = ctx.existingFoldersByName.get(chosen.toLowerCase()) ?? null;
-  return buildFolderOps(finding.item.id, chosen, existingId, ctx.foldersNeeded);
-}
-
-function buildFolderOps(
-  itemId: string,
-  folderName: string,
-  existingFolderId: string | null,
-  foldersNeeded: Set<string>,
-): PendingOp[] {
-  const ops: PendingOp[] = [];
-  if (!existingFolderId && !foldersNeeded.has(folderName)) {
-    foldersNeeded.add(folderName);
-    ops.push(makeCreateFolderOp(folderName));
-  }
-  ops.push(makeAssignFolderOp(itemId, existingFolderId, folderName));
-  return ops;
 }

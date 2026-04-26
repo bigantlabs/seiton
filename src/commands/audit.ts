@@ -147,11 +147,15 @@ async function executeAuditPipeline(
     limitPerCategory,
     logger,
     prompt,
+    promptStyle: config.ui.prompt_style,
     maskChar: config.ui.mask_character,
     dryRun,
     enabledCategories: config.folders.enabled_categories,
     existingFoldersByName,
     folderNamesById,
+    stdin: process.stdin,
+    stdout: process.stdout,
+    isTTY: () => proc.isTTY('stdin') && proc.isTTY('stdout'),
     onProgress: (ops) => setPendingOps([...ops]),
     onRuleSave,
   });
@@ -253,11 +257,15 @@ interface RunReviewOpts {
   limitPerCategory: number | null;
   logger?: Logger;
   prompt: PromptAdapter;
+  promptStyle?: import('../ui/prompts.js').PromptStyle;
   maskChar: string;
   dryRun: boolean;
   enabledCategories: readonly string[];
   existingFoldersByName: ReadonlyMap<string, string>;
   folderNamesById?: ReadonlyMap<string, string>;
+  stdin?: NodeJS.ReadStream;
+  stdout?: NodeJS.WriteStream;
+  isTTY?: () => boolean;
   onProgress?: (ops: readonly PendingOp[]) => void;
   onRuleSave?: (request: RuleSaveRequest) => Promise<void>;
 }
@@ -279,10 +287,14 @@ async function runReview(
     limitPerCategory: opts.limitPerCategory,
     logger: opts.logger,
     prompt: opts.prompt,
+    promptStyle: opts.promptStyle,
     maskChar: opts.maskChar,
     enabledCategories: opts.enabledCategories,
     existingFoldersByName: opts.existingFoldersByName,
     folderNamesById: opts.folderNamesById,
+    stdin: opts.stdin,
+    stdout: opts.stdout,
+    isTTY: opts.isTTY,
     onProgress: opts.onProgress,
     onRuleSave: opts.onRuleSave,
   });
