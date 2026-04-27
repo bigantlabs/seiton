@@ -1,4 +1,5 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { ExitCode } from '../src/exit-codes.js';
 import { VERSION } from '../src/version.js';
@@ -17,8 +18,16 @@ const EXIT_CODE_DESCRIPTIONS: Record<number, string> = {
   [ExitCode.USER_INTERRUPT]: 'User interrupt (SIGINT). Pending ops saved if enabled.',
 };
 
+function getLastCommitDate(): string {
+  try {
+    return execFileSync('git', ['log', '-1', '--format=%cs'], { encoding: 'utf-8' }).trim();
+  } catch {
+    return '1970-01-01';
+  }
+}
+
 function buildManPage(): string {
-  const date = new Date().toISOString().slice(0, 10);
+  const date = getLastCommitDate();
   const sections: string[] = [];
 
   sections.push(`.TH SEITON 1 "${date}" "seiton ${VERSION}" "User Commands"`);

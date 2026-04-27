@@ -2,6 +2,8 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { ConfigSchema, ConfigExampleOverrides, parseConfig } from '../src/config/schema.js';
+import { ReportSchema } from '../src/report/schema.js';
+import { PendingQueueSchema } from '../src/lib/domain/pending.js';
 
 const ROOT = join(import.meta.dirname, '..');
 
@@ -48,7 +50,17 @@ const example = deepMerge(
 );
 writeArtifact('config/example.config.json', JSON.stringify(example, null, 2));
 
+// 4. Report JSON Schema
+const reportJsonSchema = z.toJSONSchema(ReportSchema, { target: 'draft-2020-12' });
+writeArtifact('schemas/report-v1.schema.json', JSON.stringify(reportJsonSchema, null, 2));
+
+// 5. Pending Queue JSON Schema
+const pendingJsonSchema = z.toJSONSchema(PendingQueueSchema, { target: 'draft-2020-12' });
+writeArtifact('schemas/pending.schema.json', JSON.stringify(pendingJsonSchema, null, 2));
+
 console.log('Generated:');
 console.log('  schemas/config.schema.json');
+console.log('  schemas/report-v1.schema.json');
+console.log('  schemas/pending.schema.json');
 console.log('  config/defaults.config.json');
 console.log('  config/example.config.json');

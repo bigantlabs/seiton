@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { ConfigSchema, ConfigExampleOverrides, parseConfig } from '../../../src/config/schema.js';
+import { ReportSchema } from '../../../src/report/schema.js';
+import { PendingQueueSchema } from '../../../src/lib/domain/pending.js';
 
 const ROOT = join(import.meta.dirname, '..', '..', '..');
 
@@ -78,6 +80,38 @@ describe('gen-schemas freshness', () => {
 
   it('JSON schema is valid draft-2020-12', () => {
     const schema = JSON.parse(readArtifact('schemas/config.schema.json')) as Record<string, unknown>;
+    assert.equal(schema['$schema'], 'https://json-schema.org/draft/2020-12/schema');
+    assert.equal(schema['type'], 'object');
+    assert.ok(schema['properties']);
+  });
+
+  it('schemas/report-v1.schema.json is up-to-date with ReportSchema', () => {
+    const expected = JSON.stringify(
+      z.toJSONSchema(ReportSchema, { target: 'draft-2020-12' }),
+      null, 2,
+    ) + '\n';
+    const actual = readArtifact('schemas/report-v1.schema.json');
+    assert.equal(actual, expected, 'schemas/report-v1.schema.json is stale — run npm run gen:docs');
+  });
+
+  it('schemas/pending.schema.json is up-to-date with PendingQueueSchema', () => {
+    const expected = JSON.stringify(
+      z.toJSONSchema(PendingQueueSchema, { target: 'draft-2020-12' }),
+      null, 2,
+    ) + '\n';
+    const actual = readArtifact('schemas/pending.schema.json');
+    assert.equal(actual, expected, 'schemas/pending.schema.json is stale — run npm run gen:docs');
+  });
+
+  it('report-v1 JSON schema is valid draft-2020-12', () => {
+    const schema = JSON.parse(readArtifact('schemas/report-v1.schema.json')) as Record<string, unknown>;
+    assert.equal(schema['$schema'], 'https://json-schema.org/draft/2020-12/schema');
+    assert.equal(schema['type'], 'object');
+    assert.ok(schema['properties']);
+  });
+
+  it('pending JSON schema is valid draft-2020-12', () => {
+    const schema = JSON.parse(readArtifact('schemas/pending.schema.json')) as Record<string, unknown>;
     assert.equal(schema['$schema'], 'https://json-schema.org/draft/2020-12/schema');
     assert.equal(schema['type'], 'object');
     assert.ok(schema['properties']);

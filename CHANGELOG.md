@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.3.21] - 2026-04-27
+
+### Added
+- Created `src/report/schema.ts`: zod schema for the `report --json` output structure (version 1), matching the shape produced by `formatFindingsJson` in `src/commands/report.ts`. Includes `RedactedItemSchema`, discriminated union `ReportFindingSchema`, and top-level `ReportSchema`. (M28)
 ## [0.3.20] - 2026-04-27
 
 ### Added

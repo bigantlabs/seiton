@@ -27,7 +27,8 @@
     "test:integration": "node --import tsx --test 'test/integration/**/*.test.ts'",
     "test:coverage": "node --experimental-test-coverage --test-coverage-include='src/**/*.ts' --test-coverage-exclude='test/**' --import tsx --test 'test/unit/**/*.test.ts'",
     "gen:docs": "node --import tsx scripts/gen-schemas.ts && node --import tsx scripts/gen-help-docs.ts && node --import tsx scripts/gen-man.ts",
-    "lint:layering": "node --import tsx scripts/check-layering.ts"
+    "lint:layering": "node --import tsx scripts/check-layering.ts",
+    "check:stability": "node --import tsx scripts/check-stability.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
