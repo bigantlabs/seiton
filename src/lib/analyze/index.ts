@@ -1,20 +1,18 @@
-import { createHash } from 'node:crypto';
 import type { BwItem, BwFolder } from '../domain/types.js';
 import { ItemType } from '../domain/types.js';
 import type { Finding } from '../domain/finding.js';
 import {
-  makeDuplicateFinding,
-  makeReuseFinding,
   makeWeakFinding,
   makeMissingFinding,
   makeFolderFinding,
   makeNearDuplicateFinding,
 } from '../domain/finding.js';
-import { dedupKey, dedupKeyMulti } from '../dedup/key.js';
 import { findNearDuplicateGroups } from '../dedup/near.js';
+import { findExactDuplicates } from '../dedup/exact.js';
+import { findReusedPasswords } from '../strength/reuse.js';
 import { scorePassword, collectWeaknesses, type StrengthConfig } from '../strength/heuristic.js';
 import { zxcvbnScore } from '../strength/zxcvbn.js';
-import { classifyItem, type CustomRuleEntry } from '../folders/builtins.js';
+import { classifyItem, type CustomRuleEntry } from '../folders/classify.js';
 
 export interface AnalysisConfig {
   readonly strength: {
@@ -46,68 +44,13 @@ export function analyzeItems(
   const logins = items.filter((i) => i.type === ItemType.LOGIN);
 
   return [
-    ...findDuplicates(logins, config.dedup),
+    ...findExactDuplicates(logins, config.dedup),
     ...findNearDuplicates(logins, config.dedup),
     ...findReusedPasswords(logins),
     ...findWeakPasswords(logins, config.strength),
     ...findMissingFields(logins),
     ...findFolderSuggestions(logins, config.folders, existingFolders),
   ];
-}
-
-function findDuplicates(
-  items: readonly BwItem[],
-  config: AnalysisConfig['dedup'],
-): Finding[] {
-  const groups = new Map<string, BwItem[]>();
-  const dedupOpts = {
-    treatWwwAsSameDomain: config.treat_www_as_same_domain,
-    caseInsensitiveUsernames: config.case_insensitive_usernames,
-  };
-  for (const item of items) {
-    const uris = item.login?.uris ?? [];
-    const key = config.compare_only_primary_uri
-      ? dedupKey(uris[0]?.uri, item.login?.username, dedupOpts)
-      : dedupKeyMulti(
-          uris.map((u) => u.uri).filter((u): u is string => u !== null),
-          item.login?.username,
-          dedupOpts,
-        );
-    if (!key || key.startsWith(':')) continue;
-    const group = groups.get(key);
-    if (group) group.push(item);
-    else groups.set(key, [item]);
-  }
-
-  const findings: Finding[] = [];
-  for (const [key, group] of groups) {
-    if (group.length > 1) {
-      findings.push(makeDuplicateFinding(group, key));
-    }
-  }
-  return findings;
-}
-
-function findReusedPasswords(items: readonly BwItem[]): Finding[] {
-  const groups = new Map<string, BwItem[]>();
-  for (const item of items) {
-    const pw = item.login?.password;
-    if (!pw) continue;
-    const hash = createHash('sha256').update(pw).digest('hex');
-    const group = groups.get(hash);
-    if (group) group.push(item);
-    else groups.set(hash, [item]);
-  }
-
-  const findings: Finding[] = [];
-  let groupCounter = 0;
-  for (const [, group] of groups) {
-    if (group.length > 1) {
-      groupCounter++;
-      findings.push(makeReuseFinding(group, `reuse-group-${groupCounter}`));
-    }
-  }
-  return findings;
 }
 
 function probeZxcvbn(): boolean {
