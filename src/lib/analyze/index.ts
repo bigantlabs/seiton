@@ -8,8 +8,10 @@ import {
   makeWeakFinding,
   makeMissingFinding,
   makeFolderFinding,
+  makeNearDuplicateFinding,
 } from '../domain/finding.js';
 import { dedupKey, dedupKeyMulti } from '../dedup/key.js';
+import { findNearDuplicateGroups } from '../dedup/near.js';
 import { scorePassword, collectWeaknesses, type StrengthConfig } from '../strength/heuristic.js';
 import { zxcvbnScore } from '../strength/zxcvbn.js';
 import { classifyItem, type CustomRuleEntry } from '../folders/builtins.js';
@@ -24,6 +26,7 @@ export interface AnalysisConfig {
     readonly extra_common_passwords: readonly string[];
   };
   readonly dedup: {
+    readonly name_similarity_threshold: number;
     readonly treat_www_as_same_domain: boolean;
     readonly case_insensitive_usernames: boolean;
     readonly compare_only_primary_uri: boolean;
@@ -44,6 +47,7 @@ export function analyzeItems(
 
   return [
     ...findDuplicates(logins, config.dedup),
+    ...findNearDuplicates(logins, config.dedup),
     ...findReusedPasswords(logins),
     ...findWeakPasswords(logins, config.strength),
     ...findMissingFields(logins),
@@ -205,4 +209,12 @@ function findFolderSuggestions(
     }
   }
   return findings;
+}
+
+function findNearDuplicates(
+  items: readonly BwItem[],
+  config: AnalysisConfig['dedup'],
+): Finding[] {
+  const groups = findNearDuplicateGroups(items, config.name_similarity_threshold);
+  return groups.map((g) => makeNearDuplicateFinding(g.items, g.maxDistance));
 }

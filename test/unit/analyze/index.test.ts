@@ -14,6 +14,7 @@ function makeConfig(overrides?: Partial<AnalysisConfig>): AnalysisConfig {
       extra_common_passwords: [],
     },
     dedup: {
+      name_similarity_threshold: 0,
       treat_www_as_same_domain: true,
       case_insensitive_usernames: true,
       compare_only_primary_uri: true,
@@ -486,7 +487,7 @@ describe('analyzeItems', () => {
         }),
       ];
       const config = makeConfig({
-        dedup: { treat_www_as_same_domain: true, case_insensitive_usernames: true, compare_only_primary_uri: false },
+        dedup: { name_similarity_threshold: 0, treat_www_as_same_domain: true, case_insensitive_usernames: true, compare_only_primary_uri: false },
       });
       const findings = analyzeItems(items, config);
       const dupes = findings.filter((f) => f.category === 'duplicates');
@@ -526,7 +527,7 @@ describe('analyzeItems', () => {
         }),
       ];
       const config = makeConfig({
-        dedup: { treat_www_as_same_domain: true, case_insensitive_usernames: true, compare_only_primary_uri: false },
+        dedup: { name_similarity_threshold: 0, treat_www_as_same_domain: true, case_insensitive_usernames: true, compare_only_primary_uri: false },
       });
       const findings = analyzeItems(items, config);
       const dupes = findings.filter((f) => f.category === 'duplicates');
@@ -714,6 +715,35 @@ describe('analyzeItems', () => {
           `zxcvbn feedback should mention common password, got: ${JSON.stringify(weak[0].reasons)}`,
         );
       }
+    });
+  });
+
+  describe('near-duplicate detection', () => {
+    it('finds near-duplicate items when threshold is enabled', () => {
+      const items = [
+        makeItem({ id: '1', name: 'GitHub', login: { uris: [{ match: null, uri: 'https://github.com' }], username: 'u1', password: 'Str0ng!Passw0rd', totp: null } }),
+        makeItem({ id: '2', name: 'GitHubb', login: { uris: [{ match: null, uri: 'https://githubb.com' }], username: 'u2', password: 'An0ther!Pass99', totp: null } }),
+      ];
+      const config = makeConfig({
+        dedup: { name_similarity_threshold: 3, treat_www_as_same_domain: true, case_insensitive_usernames: true, compare_only_primary_uri: true },
+      });
+      const findings = analyzeItems(items, config);
+      const nearDups = findings.filter((f) => f.category === 'near_duplicates');
+      assert.equal(nearDups.length, 1);
+      if (nearDups[0]!.category === 'near_duplicates') {
+        assert.equal(nearDups[0].items.length, 2);
+      }
+    });
+
+    it('produces no near-duplicate findings when threshold is 0', () => {
+      const items = [
+        makeItem({ id: '1', name: 'GitHub', login: { uris: [{ match: null, uri: 'https://github.com' }], username: 'u1', password: 'Str0ng!Passw0rd', totp: null } }),
+        makeItem({ id: '2', name: 'GitHubb', login: { uris: [{ match: null, uri: 'https://githubb.com' }], username: 'u2', password: 'An0ther!Pass99', totp: null } }),
+      ];
+      const config = makeConfig();
+      const findings = analyzeItems(items, config);
+      const nearDups = findings.filter((f) => f.category === 'near_duplicates');
+      assert.equal(nearDups.length, 0);
     });
   });
 });

@@ -77,6 +77,7 @@ const CATEGORY_LABELS: Record<FindingCategory, string> = {
   weak: 'Weak Passwords',
   missing: 'Missing Fields',
   folders: 'Folder Suggestions',
+  near_duplicates: 'Near-Duplicate Names',
 };
 
 export function formatFindingsText(findings: readonly Finding[]): string {
@@ -112,6 +113,9 @@ export function formatFindingsText(findings: readonly Finding[]): string {
           break;
         case 'folders':
           lines.push(`  ${f.item.name} → suggested "${f.suggestedFolder}"`);
+          break;
+        case 'near_duplicates':
+          lines.push(`  Similar names (distance ${f.maxDistance}): ${f.items.map(i => i.name).join(', ')}`);
           break;
       }
     }
@@ -170,6 +174,12 @@ function formatOneFindingJson(finding: Finding, maskChar: string): Record<string
         category: 'folders',
         item: redactItem(finding.item, maskChar),
         suggestedFolder: finding.suggestedFolder,
+      };
+    case 'near_duplicates':
+      return {
+        category: 'near_duplicates',
+        items: finding.items.map((i) => redactItem(i, maskChar)),
+        maxDistance: finding.maxDistance,
       };
   }
 }

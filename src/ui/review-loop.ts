@@ -9,13 +9,8 @@ import { presentAllDuplicates } from './duplicate-review.js';
 import { runFolderPage } from './folder-page-loop.js';
 import { setOverride, type FolderPageState } from './folder-page-model.js';
 import { presentFoldersFallback } from './folder-page-fallback.js';
-import { buildFolderOps } from './folder-page-ops.js';
 import { extractRuleKeyword, offerRuleCapture } from './rule-capture.js';
 import { itemLabel } from './item-label.js';
-
-export { buildFolderOps };
-
-export { itemLabel };
 
 export interface ReviewOptions {
   skipCategories: readonly string[];
@@ -72,13 +67,15 @@ export function collectOpsFromFindings(
       case 'missing':
         break;
       case 'folders': {
-        if (!finding.existingFolderId && !foldersNeeded.has(finding.suggestedFolder)) {
-          foldersNeeded.add(finding.suggestedFolder);
+        if (!finding.existingFolderId && !foldersNeeded.has(finding.suggestedFolder.toLowerCase())) {
+          foldersNeeded.add(finding.suggestedFolder.toLowerCase());
           ops.push(makeCreateFolderOp(finding.suggestedFolder));
         }
         ops.push(makeAssignFolderOp(finding.item.id, finding.existingFolderId, finding.suggestedFolder));
         break;
       }
+      case 'near_duplicates':
+        break;
     }
   }
 

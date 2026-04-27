@@ -269,11 +269,11 @@ describe('buildFolderOps', () => {
     assert.equal(ops.length, 2);
     assert.equal(ops[0]!.kind, 'create_folder');
     assert.equal(ops[1]!.kind, 'assign_folder');
-    assert.ok(foldersNeeded.has('Banking'));
+    assert.ok(foldersNeeded.has('banking'));
   });
 
   it('skips create when folder already needed', () => {
-    const foldersNeeded = new Set(['Banking']);
+    const foldersNeeded = new Set(['banking']);
     const ops = buildFolderOps('item-1', 'Banking', null, foldersNeeded);
     assert.equal(ops.length, 1);
     assert.equal(ops[0]!.kind, 'assign_folder');

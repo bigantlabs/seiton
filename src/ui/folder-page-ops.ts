@@ -10,8 +10,8 @@ export function buildFolderOps(
   foldersNeeded: Set<string>,
 ): PendingOp[] {
   const ops: PendingOp[] = [];
-  if (!existingFolderId && !foldersNeeded.has(folderName)) {
-    foldersNeeded.add(folderName);
+  if (!existingFolderId && !foldersNeeded.has(folderName.toLowerCase())) {
+    foldersNeeded.add(folderName.toLowerCase());
     ops.push(makeCreateFolderOp(folderName));
   }
   ops.push(makeAssignFolderOp(itemId, existingFolderId, folderName));
@@ -33,8 +33,8 @@ export function pageStateToOps(
         const folderId = entry.overrideFolder
           ? existingFoldersByName.get(effectiveFolder.toLowerCase()) ?? null
           : existingFolderId ?? existingFoldersByName.get(effectiveFolder.toLowerCase()) ?? null;
-        if (!folderId && !foldersNeeded.has(effectiveFolder)) {
-          foldersNeeded.add(effectiveFolder);
+        if (!folderId && !foldersNeeded.has(effectiveFolder.toLowerCase())) {
+          foldersNeeded.add(effectiveFolder.toLowerCase());
           ops.push(makeCreateFolderOp(effectiveFolder));
         }
         ops.push(makeAssignFolderOp(item.id, folderId, effectiveFolder));

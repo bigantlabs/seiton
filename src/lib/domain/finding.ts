@@ -6,6 +6,7 @@ export const FINDING_CATEGORIES = [
   'weak',
   'missing',
   'folders',
+  'near_duplicates',
 ] as const;
 
 export type FindingCategory = (typeof FINDING_CATEGORIES)[number];
@@ -48,12 +49,19 @@ export type FolderFinding = {
   readonly matchReason: MatchReason;
 };
 
+export type NearDuplicateFinding = {
+  readonly category: 'near_duplicates';
+  readonly items: readonly BwItem[];
+  readonly maxDistance: number;
+};
+
 export type Finding =
   | DuplicateFinding
   | ReuseFinding
   | WeakFinding
   | MissingFinding
-  | FolderFinding;
+  | FolderFinding
+  | NearDuplicateFinding;
 
 export function makeDuplicateFinding(
   items: readonly BwItem[],
@@ -93,11 +101,18 @@ export function makeFolderFinding(
   return { category: 'folders', item, suggestedFolder: folder, existingFolderId, matchReason };
 }
 
+export function makeNearDuplicateFinding(
+  items: readonly BwItem[],
+  maxDistance: number,
+): NearDuplicateFinding {
+  return { category: 'near_duplicates', items, maxDistance };
+}
+
 export function isFindingCategory(value: string): value is FindingCategory {
   return (FINDING_CATEGORIES as readonly string[]).includes(value);
 }
 
-export const INFORMATIONAL_CATEGORIES: readonly FindingCategory[] = ['weak', 'reuse', 'missing'];
+export const INFORMATIONAL_CATEGORIES: readonly FindingCategory[] = ['weak', 'reuse', 'missing', 'near_duplicates'];
 export const ACTIONABLE_CATEGORIES: readonly FindingCategory[] = ['duplicates', 'folders'];
 
 export function isInformationalCategory(category: FindingCategory): boolean {

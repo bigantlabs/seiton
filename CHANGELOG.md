@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.3.18] - 2026-04-26
+
+### Added
+- Near-duplicate detection using Levenshtein distance. Items with similar names are flagged in the batch report. Configure via `dedup.name_similarity_threshold` (default: 3, set to 0 to disable). (M24)
+
+- [MILESTONE 23 ✓] feat: Implement Milestone 23: zxcvbn-ts Password Strength Integration (M24)
 ## [0.3.17] - 2026-04-26
 
 ### Added

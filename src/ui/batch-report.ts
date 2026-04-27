@@ -67,6 +67,7 @@ function buildCategoryViews(
   const weak = findings.filter(f => f.category === 'weak');
   const reuse = findings.filter(f => f.category === 'reuse');
   const missing = findings.filter(f => f.category === 'missing');
+  const nearDups = findings.filter(f => f.category === 'near_duplicates');
 
   const views: CategoryView[] = [];
   if (weak.length > 0) views.push({
@@ -83,6 +84,11 @@ function buildCategoryViews(
     key: 'missing',
     label: `Missing Fields (${missing.length})`,
     render: () => renderMissingSection(missing, prompt),
+  });
+  if (nearDups.length > 0) views.push({
+    key: 'near_duplicates',
+    label: `Near-Duplicate Names (${nearDups.length} group(s))`,
+    render: () => renderNearDuplicateSection(nearDups, prompt),
   });
   return views;
 }
@@ -119,5 +125,16 @@ function renderMissingSection(
   prompt.logWarning(`Missing Fields (${findings.length}):`);
   for (const f of findings) {
     prompt.logInfo(`  ${itemLabel(f.item)} — Missing: ${f.missingFields.join(', ')}`);
+  }
+}
+
+function renderNearDuplicateSection(
+  findings: readonly Extract<Finding, { category: 'near_duplicates' }>[],
+  prompt: PromptAdapter,
+): void {
+  prompt.logWarning(`Near-Duplicate Names (${findings.length} group(s)):`);
+  for (const f of findings) {
+    const names = f.items.map(i => itemLabel(i)).join(', ');
+    prompt.logInfo(`  Similar names (distance ${f.maxDistance}): ${names}`);
   }
 }

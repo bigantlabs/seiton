@@ -173,4 +173,27 @@ describe('renderBatchReport', () => {
     assert.equal(weakOptionInSecondSelect?.hint, 'viewed', 'weak category should have "viewed" hint after being selected');
     assert.equal(missingOptionInSecondSelect?.hint, undefined, 'missing category should not have hint yet');
   });
+
+  it('renders near-duplicate findings as a single category', async () => {
+    const items = [makeItem({ id: 'a', name: 'GitHub' }), makeItem({ id: 'b', name: 'GitHubb' })];
+    const findings: Finding[] = [
+      { category: 'near_duplicates', items, maxDistance: 1 },
+    ];
+    const prompt = makeCapturingPrompt();
+    await renderBatchReport(findings, prompt, '•');
+    assert.ok(prompt.warnings.some(m => m.includes('Near-Duplicate Names (1 group(s))')));
+    assert.ok(prompt.infos.some(m => m.includes('Similar names (distance 1)')));
+    assert.ok(prompt.infos.some(m => m.includes('1 informational')));
+  });
+
+  it('renders near-duplicate alongside other categories with select', async () => {
+    const findings: Finding[] = [
+      { category: 'weak', item: makeItem({ id: '1' }), score: 1, reasons: ['short'] },
+      { category: 'near_duplicates', items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })], maxDistance: 2 },
+    ];
+    const prompt = makeCapturingPrompt(['near_duplicates', 'done']);
+    await renderBatchReport(findings, prompt, '•');
+    assert.ok(prompt.warnings.some(m => m.includes('Near-Duplicate Names')));
+    assert.ok(prompt.infos.some(m => m.includes('distance 2')));
+  });
 });

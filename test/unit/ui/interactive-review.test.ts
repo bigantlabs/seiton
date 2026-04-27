@@ -1,8 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { interactiveReview, itemLabel } from '../../../src/ui/review-loop.js';
+import { interactiveReview } from '../../../src/ui/review-loop.js';
+import { itemLabel } from '../../../src/ui/item-label.js';
 import type { PromptAdapter, SelectOption, SpinnerHandle } from '../../../src/ui/prompts.js';
-import type { Finding } from '../../../src/lib/domain/finding.js';
+import type { Finding, NearDuplicateFinding } from '../../../src/lib/domain/finding.js';
 import type { InteractiveReviewOptions } from '../../../src/ui/review-loop.js';
 import { makeItem } from '../../helpers/make-item.js';
 
@@ -379,6 +380,42 @@ describe('interactiveReview', () => {
     }));
     assert.equal(result.ops.length, 2);
     assert.equal(result.reviewed, 1);
+  });
+
+  it('routes near_duplicates findings through batch report (informational path)', async () => {
+    const nearDup: NearDuplicateFinding = {
+      category: 'near_duplicates',
+      items: [makeItem({ id: 'nd-1', name: 'Login A' }), makeItem({ id: 'nd-2', name: 'Login B' })],
+      maxDistance: 2,
+    };
+    const findings: Finding[] = [nearDup];
+    const logged: string[] = [];
+    const prompt = makeMockPrompt([]);
+    prompt.logStep = (msg: string) => { logged.push(msg); };
+    prompt.logWarning = (msg: string) => { logged.push(msg); };
+    prompt.logInfo = (msg: string) => { logged.push(msg); };
+    const result = await interactiveReview(findings, opts({ prompt }));
+    assert.equal(result.ops.length, 0);
+    assert.equal(result.reviewed, 1);
+    assert.equal(result.cancelled, false);
+    assert.ok(logged.some(m => m.includes('Informational')));
+    assert.ok(logged.some(m => m.includes('Near-Duplicate')));
+  });
+
+  it('routes near_duplicates alongside other informational findings through batch report', async () => {
+    const findings: Finding[] = [
+      { category: 'weak', item: makeItem({ id: 'w1' }), score: 1, reasons: ['short'] },
+      { category: 'near_duplicates', items: [makeItem({ id: 'nd-1', name: 'A' }), makeItem({ id: 'nd-2', name: 'B' })], maxDistance: 1 },
+    ];
+    const logged: string[] = [];
+    const prompt = makeMockPrompt([0, 'done' as unknown as number]);
+    prompt.logStep = (msg: string) => { logged.push(msg); };
+    prompt.logWarning = (msg: string) => { logged.push(msg); };
+    prompt.logInfo = (msg: string) => { logged.push(msg); };
+    const result = await interactiveReview(findings, opts({ prompt }));
+    assert.equal(result.reviewed, 2);
+    assert.equal(result.ops.length, 0);
+    assert.ok(logged.some(m => m.includes('2 across 2 categories')));
   });
 });
 
