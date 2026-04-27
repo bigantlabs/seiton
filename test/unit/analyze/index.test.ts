@@ -1,7 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeItems, type AnalysisConfig } from '../../../src/lib/analyze/index.js';
-import type { BwItem } from '../../../src/lib/domain/types.js';
+import { analyzeItems } from '../../../src/lib/analyze/index.js';
+import type { AnalysisConfig } from '../../../src/lib/analyze/types.js';
+import { makeItem } from '../../helpers/make-item.js';
 
 function makeConfig(overrides?: Partial<AnalysisConfig>): AnalysisConfig {
   return {
@@ -14,6 +15,7 @@ function makeConfig(overrides?: Partial<AnalysisConfig>): AnalysisConfig {
       extra_common_passwords: [],
     },
     dedup: {
+      name_similarity_threshold: 0,
       treat_www_as_same_domain: true,
       case_insensitive_usernames: true,
       compare_only_primary_uri: true,
@@ -27,26 +29,6 @@ function makeConfig(overrides?: Partial<AnalysisConfig>): AnalysisConfig {
   };
 }
 
-function makeItem(overrides: Partial<BwItem> = {}): BwItem {
-  return {
-    id: 'test-id',
-    organizationId: null,
-    folderId: null,
-    type: 1,
-    name: 'Test Item',
-    notes: null,
-    favorite: false,
-    login: {
-      uris: [{ match: null, uri: 'https://example.com' }],
-      username: 'user',
-      password: 'Str0ng!Passw0rd',
-      totp: null,
-    },
-    revisionDate: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-
 describe('analyzeItems', () => {
   it('returns empty findings for empty items', () => {
     const findings = analyzeItems([], makeConfig());
@@ -54,7 +36,7 @@ describe('analyzeItems', () => {
   });
 
   it('returns empty findings for items with no issues', () => {
-    const items = [makeItem({ id: '1' })];
+    const items = [makeItem({ id: '1', login: { uris: [{ match: null, uri: 'https://example.com' }], username: 'user', password: 'Str0ng!Passw0rd', totp: null } })];
     const findings = analyzeItems(items, makeConfig());
     const nonFolder = findings.filter((f) => f.category !== 'folders');
     assert.equal(nonFolder.length, 0);
@@ -252,7 +234,8 @@ describe('analyzeItems', () => {
       if (f.category === 'folders') {
         assert.equal(f.item.id, 'github-item');
         assert.equal(f.suggestedFolder, 'Development');
-        assert.equal('matchedRule' in f, false, 'FolderFinding should not have matchedRule property');
+        assert.equal(f.matchReason.ruleSource, 'builtin');
+        assert.equal(f.matchReason.matchedKeyword, 'github');
       }
     });
 
@@ -276,6 +259,8 @@ describe('analyzeItems', () => {
       if (folders[0]!.category === 'folders') {
         assert.equal(folders[0].item.id, 'custom-item');
         assert.equal(folders[0].suggestedFolder, 'Crypto');
+        assert.equal(folders[0].matchReason.ruleSource, 'custom');
+        assert.equal(folders[0].matchReason.matchedKeyword, 'crypto');
       }
     });
 
@@ -503,7 +488,7 @@ describe('analyzeItems', () => {
         }),
       ];
       const config = makeConfig({
-        dedup: { treat_www_as_same_domain: true, case_insensitive_usernames: true, compare_only_primary_uri: false },
+        dedup: { name_similarity_threshold: 0, treat_www_as_same_domain: true, case_insensitive_usernames: true, compare_only_primary_uri: false },
       });
       const findings = analyzeItems(items, config);
       const dupes = findings.filter((f) => f.category === 'duplicates');
@@ -543,7 +528,7 @@ describe('analyzeItems', () => {
         }),
       ];
       const config = makeConfig({
-        dedup: { treat_www_as_same_domain: true, case_insensitive_usernames: true, compare_only_primary_uri: false },
+        dedup: { name_similarity_threshold: 0, treat_www_as_same_domain: true, case_insensitive_usernames: true, compare_only_primary_uri: false },
       });
       const findings = analyzeItems(items, config);
       const dupes = findings.filter((f) => f.category === 'duplicates');
@@ -644,8 +629,8 @@ describe('analyzeItems', () => {
       assert.ok(weak.length > 0, 'password containing extra common substring should be flagged at zxcvbn_min_score: 4');
       if (weak[0]!.category === 'weak') {
         assert.ok(
-          weak[0].reasons.some((r) => r.includes('common password')),
-          'reasons should mention common password substring',
+          weak[0].reasons.some((r) => r.includes('personal info')),
+          'reasons should mention personal info (user dictionary match)',
         );
       }
     });
@@ -675,6 +660,91 @@ describe('analyzeItems', () => {
       const findings = analyzeItems(items, config);
       const weak = findings.filter((f) => f.category === 'weak');
       assert.equal(weak.length, 0, 'same password should score 4 (pass) when extra_common_passwords is empty');
+    });
+  });
+
+  describe('zxcvbn integration', () => {
+    it('flags Password1! which passes heuristic checks but is weak by dictionary analysis', () => {
+      const items = [
+        makeItem({
+          id: '1',
+          login: {
+            uris: [{ match: null, uri: 'https://a.com' }],
+            username: 'u',
+            password: 'Password1!',
+            totp: null,
+          },
+        }),
+      ];
+      const config = makeConfig({
+        strength: {
+          min_length: 8,
+          require_digit: true,
+          require_symbol: true,
+          min_character_classes: 2,
+          zxcvbn_min_score: 2,
+          extra_common_passwords: [],
+        },
+      });
+      const findings = analyzeItems(items, config);
+      const weak = findings.filter((f) => f.category === 'weak');
+      assert.ok(weak.length > 0, 'Password1! should be flagged by zxcvbn despite passing heuristic checks');
+      if (weak[0]!.category === 'weak') {
+        assert.equal(weak[0].score, 0, 'Password1! should score 0 under zxcvbn');
+      }
+    });
+
+    it('provides zxcvbn-style feedback strings in reasons', () => {
+      const items = [
+        makeItem({
+          id: '1',
+          login: {
+            uris: [{ match: null, uri: 'https://a.com' }],
+            username: 'u',
+            password: 'password',
+            totp: null,
+          },
+        }),
+      ];
+      const config = makeConfig();
+      const findings = analyzeItems(items, config);
+      const weak = findings.filter((f) => f.category === 'weak');
+      assert.ok(weak.length > 0);
+      if (weak[0]!.category === 'weak') {
+        assert.ok(
+          weak[0].reasons.some((r) => r.includes('common password')),
+          `zxcvbn feedback should mention common password, got: ${JSON.stringify(weak[0].reasons)}`,
+        );
+      }
+    });
+  });
+
+  describe('near-duplicate detection', () => {
+    it('finds near-duplicate items when threshold is enabled', () => {
+      const items = [
+        makeItem({ id: '1', name: 'GitHub', login: { uris: [{ match: null, uri: 'https://github.com' }], username: 'u1', password: 'Str0ng!Passw0rd', totp: null } }),
+        makeItem({ id: '2', name: 'GitHubb', login: { uris: [{ match: null, uri: 'https://githubb.com' }], username: 'u2', password: 'An0ther!Pass99', totp: null } }),
+      ];
+      const config = makeConfig({
+        dedup: { name_similarity_threshold: 3, treat_www_as_same_domain: true, case_insensitive_usernames: true, compare_only_primary_uri: true },
+      });
+      const findings = analyzeItems(items, config);
+      const nearDups = findings.filter((f) => f.category === 'near_duplicates');
+      assert.equal(nearDups.length, 1);
+      if (nearDups[0]!.category === 'near_duplicates') {
+        assert.equal(nearDups[0].items.length, 2);
+      }
+    });
+
+    it('produces no near-duplicate findings when threshold is 0', () => {
+      const items = [
+        makeItem({ id: '1', name: 'GitHub', login: { uris: [{ match: null, uri: 'https://github.com' }], username: 'u1', password: 'Str0ng!Passw0rd', totp: null } }),
+        makeItem({ id: '2', name: 'GitHubb', login: { uris: [{ match: null, uri: 'https://githubb.com' }], username: 'u2', password: 'An0ther!Pass99', totp: null } }),
+      ];
+      const config = makeConfig();
+      const findings = analyzeItems(items, config);
+      const nearDups = findings.filter((f) => f.category === 'near_duplicates');
+      assert.equal(nearDups.length, 0);
     });
   });
 });

@@ -26,6 +26,7 @@ function makeDefaultConfig(overrides?: Partial<Config>): Config {
 function makeOpts(overrides: Partial<AuditOptions> = {}): AuditOptions {
   return {
     config: makeDefaultConfig(),
+    configFilePath: null,
     bw: makeFakeAdapter(),
     fs: makeFakeFs(),
     clock: makeFakeClock(),

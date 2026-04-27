@@ -1,7 +1,6 @@
-export type BuiltinRule = {
-  readonly folder: string;
-  readonly keywords: readonly string[];
-};
+import type { BuiltinRule } from './types.js';
+
+export type { BuiltinRule } from './types.js';
 
 export const BUILTIN_RULES: readonly BuiltinRule[] = [
   {
@@ -85,74 +84,15 @@ export const BUILTIN_RULES: readonly BuiltinRule[] = [
   },
 ];
 
-const BUILTIN_FOLDER_INDEX = new Map<string, string>();
+export const BUILTIN_FOLDER_INDEX = new Map<string, string>();
 for (const rule of BUILTIN_RULES) {
   for (const keyword of rule.keywords) {
     BUILTIN_FOLDER_INDEX.set(keyword.toLowerCase(), rule.folder);
   }
 }
 
-export type CustomRule = {
-  readonly folder: string;
-  readonly keywords: readonly string[];
-};
-
-function isWordChar(ch: string): boolean {
-  return /[a-z0-9]/.test(ch);
-}
-
-function containsAsWord(text: string, keyword: string): boolean {
-  if (!keyword) return false;
-  let start = 0;
-  while (start <= text.length) {
-    const idx = text.indexOf(keyword, start);
-    if (idx < 0) return false;
-    const before = idx === 0 ? '' : text[idx - 1]!;
-    const afterIdx = idx + keyword.length;
-    const after = afterIdx >= text.length ? '' : text[afterIdx]!;
-    const beforeOk = before === '' || !isWordChar(before);
-    const afterOk = after === '' || !isWordChar(after);
-    if (beforeOk && afterOk) return true;
-    start = idx + 1;
-  }
-  return false;
-}
-
-export function classifyItem(
-  name: string,
-  uris: readonly string[],
-  customRules: readonly CustomRule[],
-  enabledCategories: readonly string[],
-): string | null {
-  const searchable = [
-    name.toLowerCase(),
-    ...uris.map((u) => u.toLowerCase()),
-  ];
-
-  for (const rule of customRules) {
-    for (const keyword of rule.keywords) {
-      const lower = keyword.toLowerCase();
-      for (const text of searchable) {
-        if (containsAsWord(text, lower)) return rule.folder;
-      }
-    }
-  }
-
-  const enabledSet = new Set(enabledCategories);
-
-  for (const rule of BUILTIN_RULES) {
-    if (!enabledSet.has(rule.folder)) continue;
-    for (const keyword of rule.keywords) {
-      const lower = keyword.toLowerCase();
-      for (const text of searchable) {
-        if (containsAsWord(text, lower)) return rule.folder;
-      }
-    }
-  }
-
-  return null;
-}
-
-export function builtinFolderForKeyword(keyword: string): string | undefined {
-  return BUILTIN_FOLDER_INDEX.get(keyword.toLowerCase());
-}
+export {
+  classifyItem,
+  builtinFolderForKeyword,
+} from './classify.js';
+export type { CustomRuleEntry, ClassifyResult } from './types.js';

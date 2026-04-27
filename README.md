@@ -4,6 +4,17 @@ An interactive command-line auditor for [Bitwarden](https://bitwarden.com/) vaul
 
 The name derives from Japanese 整頓 ("set in order"), one of the five principles of the 5S workplace-organization methodology.
 
+**[Documentation](https://antperez69367.github.io/seiton/)**
+
+## Features
+
+- **Five analyzers**: duplicates, password reuse, weak passwords, missing fields, folder classification
+- **Interactive review**: per-item approval for every vault change — no `--force` flag
+- **Interrupt recovery**: Ctrl+C saves progress; `seiton resume` picks up where you left off
+- **Read-only mode**: `seiton report` outputs findings without mutations (supports `--json`)
+- **Configurable rules**: tune password strength thresholds, dedup sensitivity, folder categories, and custom keyword rules
+- **Preflight checks**: `seiton doctor` verifies your environment before you start
+
 ## Prerequisites
 
 - **Node.js** >= 22
@@ -21,15 +32,6 @@ Verify the installation:
 seiton --version
 ```
 
-To verify integrity against the published SHA256SUMS (optional):
-
-```sh
-# Download the release tarball and checksum from GitHub Releases
-curl -LO "https://github.com/AntPerez69367/seiton/releases/download/v$(seiton --version)/SHA256SUMS"
-curl -LO "https://github.com/AntPerez69367/seiton/releases/download/v$(seiton --version)/seiton-$(seiton --version).tgz"
-sha256sum -c SHA256SUMS
-```
-
 ## Quick Start
 
 ```sh
@@ -45,22 +47,16 @@ seiton audit
 
 ## Commands
 
-| Command         | Description                                             |
-| --------------- | ------------------------------------------------------- |
-| `seiton audit`  | Fetch, analyze, review findings, apply approved changes |
-| `seiton resume` | Resume a previously interrupted audit session           |
-| `seiton discard`| Delete the saved pending-ops queue                      |
-| `seiton report` | Read-only analysis (supports `--json`)                  |
-| `seiton doctor` | Preflight checks for `bw`, session, and config          |
-| `seiton config` | Get, set, edit, reset configuration                     |
+| Command | Description |
+| --- | --- |
+| `seiton audit` | Fetch, analyze, review findings, apply approved changes (default) |
+| `seiton resume` | Resume a previously interrupted audit session |
+| `seiton discard` | Delete the saved pending-ops queue |
+| `seiton report` | Read-only analysis (supports `--json`) |
+| `seiton doctor` | Preflight checks for `bw`, session, and config |
+| `seiton config` | Get, set, edit, reset configuration |
 
 Run `seiton --help` or `seiton <command> --help` for detailed usage.
-
-## How It Works
-
-seiton reads your vault through the `bw` CLI, runs five analyzers (duplicates, password reuse, weak passwords, missing fields, folder classification), and presents findings interactively. You approve or reject each change. Approved changes are queued and applied serially through `bw`. If interrupted, the queue is saved and can be resumed later.
-
-seiton never makes direct API calls, never handles your master password, and never writes secrets to disk.
 
 ## Configuration
 
@@ -76,6 +72,8 @@ seiton config set strength.min_length 14
 # Open in your editor
 seiton config edit
 ```
+
+See the [configuration reference](https://antperez69367.github.io/seiton/docs/user-guide/configuration) for all available options.
 
 ## Platform Support
 

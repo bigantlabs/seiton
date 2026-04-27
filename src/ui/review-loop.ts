@@ -1,10 +1,16 @@
-import type { Finding, FindingCategory } from '../lib/domain/finding.js';
+import type { Finding, FindingCategory, DuplicateFinding, FolderFinding } from '../lib/domain/finding.js';
+import { isInformationalCategory } from '../lib/domain/finding.js';
 import type { PendingOp } from '../lib/domain/pending.js';
 import { makeDeleteItemOp, makeAssignFolderOp, makeCreateFolderOp } from '../lib/domain/pending.js';
 import type { Logger } from '../adapters/logging.js';
-import type { PromptAdapter } from './prompts.js';
-import type { BwItem } from '../lib/domain/types.js';
-import { maskPassword } from './mask.js';
+import type { PromptAdapter, PromptStyle } from './prompts.js';
+import { renderBatchReport } from './batch-report.js';
+import { presentAllDuplicates } from './duplicate-review.js';
+import { runFolderPage } from './folder-page-loop.js';
+import { setOverride, type FolderPageState } from './folder-page-model.js';
+import { presentFoldersFallback } from './folder-page-fallback.js';
+import { extractRuleKeyword, offerRuleCapture } from './rule-capture.js';
+import { itemLabel } from './item-label.js';
 
 export interface ReviewOptions {
   skipCategories: readonly string[];
@@ -47,9 +53,10 @@ export function collectOpsFromFindings(
 
     switch (finding.category) {
       case 'duplicates': {
+        // Non-interactive: deterministic keep-first. Interactive path (presentAllDuplicates) lets the user pick.
         const [, ...dupes] = finding.items;
         for (const dupe of dupes) {
-          ops.push(makeDeleteItemOp(dupe.id));
+          ops.push(makeDeleteItemOp(dupe.id, itemLabel(dupe)));
         }
         break;
       }
@@ -60,23 +67,38 @@ export function collectOpsFromFindings(
       case 'missing':
         break;
       case 'folders': {
-        if (!finding.existingFolderId && !foldersNeeded.has(finding.suggestedFolder)) {
-          foldersNeeded.add(finding.suggestedFolder);
+        if (!finding.existingFolderId && !foldersNeeded.has(finding.suggestedFolder.toLowerCase())) {
+          foldersNeeded.add(finding.suggestedFolder.toLowerCase());
           ops.push(makeCreateFolderOp(finding.suggestedFolder));
         }
         ops.push(makeAssignFolderOp(finding.item.id, finding.existingFolderId, finding.suggestedFolder));
         break;
       }
+      case 'near_duplicates':
+        break;
     }
   }
 
   return { ops, reviewed, skipped, cancelled: false };
 }
 
+export interface RuleSaveRequest {
+  folder: string;
+  keyword: string;
+}
+
 export interface InteractiveReviewOptions extends ReviewOptions {
   prompt: PromptAdapter;
+  promptStyle?: PromptStyle;
   maskChar: string;
+  enabledCategories: readonly string[];
+  existingFoldersByName: ReadonlyMap<string, string>;
+  folderNamesById?: ReadonlyMap<string, string>;
+  stdin?: NodeJS.ReadStream;
+  stdout?: NodeJS.WriteStream;
+  isTTY?: () => boolean;
   onProgress?: (ops: readonly PendingOp[]) => void;
+  onRuleSave?: (request: RuleSaveRequest) => Promise<void>;
 }
 
 export async function interactiveReview(
@@ -89,161 +111,162 @@ export async function interactiveReview(
   let skipped = 0;
 
   const categoryCounts = new Map<FindingCategory, number>();
-  const foldersNeeded = new Set<string>();
+  const informational: Finding[] = [];
+  const duplicates: DuplicateFinding[] = [];
+  const folders: FolderFinding[] = [];
 
   for (const finding of findings) {
     if (skipCategories.includes(finding.category)) {
       skipped++;
       continue;
     }
-
     const count = categoryCounts.get(finding.category) ?? 0;
     if (limitPerCategory !== null && count >= limitPerCategory) {
       skipped++;
       continue;
     }
-
-    const action = await presentFinding(finding, prompt, maskChar, foldersNeeded);
-    if (action === 'cancel') {
-      return { ops, reviewed, skipped: skipped + (findings.length - reviewed - skipped), cancelled: true };
-    }
-    reviewed++;
     categoryCounts.set(finding.category, count + 1);
 
-    if (action === 'skip') continue;
-    for (const op of action) ops.push(op);
-    onProgress?.(ops);
+    if (isInformationalCategory(finding.category)) {
+      informational.push(finding);
+    } else if (finding.category === 'duplicates') {
+      duplicates.push(finding);
+    } else if (finding.category === 'folders') {
+      folders.push(finding);
+    }
+  }
+
+  if (informational.length > 0) {
+    await renderBatchReport(informational, prompt, maskChar);
+  }
+  reviewed += informational.length;
+
+  if (duplicates.length > 0) {
+    const dupResult = await presentAllDuplicates(duplicates, prompt, opts.folderNamesById);
+    if (dupResult.cancelled) {
+      return { ops, reviewed, skipped: skipped + duplicates.length, cancelled: true };
+    }
+    if (dupResult.skipped) {
+      skipped += duplicates.length;
+    } else {
+      for (const op of dupResult.ops) ops.push(op);
+      reviewed += duplicates.length;
+      if (dupResult.ops.length > 0) onProgress?.(ops);
+    }
+  }
+
+  if (folders.length > 0) {
+    const ttyCheck = opts.isTTY ?? (() => false);
+    const usePageDisplay = opts.promptStyle !== 'plain' && ttyCheck();
+
+    if (usePageDisplay) {
+      const pageOps = await runFolderPageWithEdits(folders, opts);
+      if (pageOps === null) {
+        return { ops, reviewed, skipped: skipped + folders.length, cancelled: true };
+      }
+      for (const op of pageOps) ops.push(op);
+      reviewed += folders.length;
+      if (pageOps.length > 0) onProgress?.(ops);
+    } else {
+      const folderOps = await presentFoldersFallback(folders, opts);
+      if (folderOps.cancelled) {
+        return { ops, reviewed, skipped: skipped + folderOps.remaining, cancelled: true };
+      }
+      for (const op of folderOps.ops) ops.push(op);
+      reviewed += folderOps.reviewed;
+      if (folderOps.ops.length > 0) onProgress?.(ops);
+    }
   }
 
   return { ops, reviewed, skipped, cancelled: false };
 }
 
-type FindingAction = PendingOp[] | 'skip' | 'cancel';
+async function runFolderPageWithEdits(
+  folders: FolderFinding[],
+  opts: InteractiveReviewOptions,
+): Promise<PendingOp[] | null> {
+  const { prompt, onRuleSave } = opts;
+  const mutableCategories = [...opts.enabledCategories];
+  let ruleCaptureSuppressed = false;
+  let state: FolderPageState | undefined;
 
-async function presentFinding(
-  finding: Finding,
-  prompt: PromptAdapter,
-  maskChar: string,
-  foldersNeeded: Set<string>,
-): Promise<FindingAction> {
-  switch (finding.category) {
-    case 'duplicates':
-      return presentDuplicate(finding, prompt);
-    case 'weak':
-      return presentWeak(finding, prompt, maskChar);
-    case 'missing':
-      return presentMissing(finding, prompt);
-    case 'folders':
-      return presentFolder(finding, prompt, foldersNeeded);
-    case 'reuse':
-      return presentReuse(finding, prompt, maskChar);
+  while (true) {
+    const result = await runFolderPage(
+      folders, opts.existingFoldersByName, prompt,
+      opts.stdin!, opts.stdout!, undefined, state,
+    );
+
+    if (result.action === 'cancel') return null;
+
+    if (result.action === 'submit') return result.ops;
+
+    const entry = result.state.entries[result.entryIndex]!;
+    const editResult = await editFolderEntry(
+      entry, mutableCategories, prompt,
+      onRuleSave, ruleCaptureSuppressed,
+    );
+    if (editResult === null) {
+      state = result.state;
+    } else {
+      if (editResult.suppressed) ruleCaptureSuppressed = true;
+      state = setOverride(result.state, result.entryIndex, editResult.folder);
+    }
   }
 }
 
-function itemLabel(item: BwItem): string {
-  const uri = item.login?.uris?.[0]?.uri;
-  const user = item.login?.username;
-  let label = item.name;
-  if (uri) label += ` (${uri})`;
-  if (user) label += ` [${user}]`;
-  return label;
+interface EditResult {
+  folder: string;
+  suppressed: boolean;
 }
 
-async function presentDuplicate(
-  finding: Extract<Finding, { category: 'duplicates' }>,
+async function editFolderEntry(
+  entry: { readonly finding: FolderFinding },
+  mutableCategories: string[],
   prompt: PromptAdapter,
-): Promise<FindingAction> {
-  const items = finding.items;
-  prompt.logStep(`Duplicate group: ${finding.key}`);
+  onRuleSave?: (request: RuleSaveRequest) => Promise<void>,
+  ruleCaptureSuppressed = false,
+): Promise<EditResult | null> {
+  const CREATE_NEW = '__create_new__';
+  const suggested = entry.finding.suggestedFolder;
+  const categories = mutableCategories.includes(suggested)
+    ? mutableCategories
+    : [suggested, ...mutableCategories];
 
-  const options = items.map((item, i) => ({
-    value: i,
-    label: itemLabel(item),
-    hint: i === 0 ? 'oldest' : undefined,
-  }));
+  const options = [
+    ...categories.map(name => ({
+      value: name,
+      label: name,
+      hint: name === suggested ? 'suggested' : undefined,
+    })),
+    { value: CREATE_NEW, label: 'Create new folder…' },
+  ];
 
-  const keepIdx = await prompt.select<number>(
-    'Which item should be kept? (others will be deleted)',
+  const chosen = await prompt.select<string>(
+    `Select folder for "${entry.finding.item.name}":`,
     options,
   );
+  if (chosen === null) return null;
 
-  if (keepIdx === null) return 'cancel';
-
-  const ops: PendingOp[] = [];
-  for (let i = 0; i < items.length; i++) {
-    if (i !== keepIdx) ops.push(makeDeleteItemOp(items[i]!.id));
+  if (chosen === CREATE_NEW) {
+    const name = await prompt.text('Enter folder name:');
+    if (!name) return null;
+    const keyword = extractRuleKeyword(entry.finding.item);
+    if (onRuleSave && keyword) {
+      await onRuleSave({ folder: name, keyword });
+    }
+    if (!mutableCategories.includes(name)) {
+      mutableCategories.push(name);
+    }
+    return { folder: name, suppressed: false };
   }
-  return ops;
-}
 
-async function presentWeak(
-  finding: Extract<Finding, { category: 'weak' }>,
-  prompt: PromptAdapter,
-  maskChar: string,
-): Promise<FindingAction> {
-  const masked = finding.item.login?.password
-    ? maskPassword(finding.item.login.password, maskChar)
-    : '(empty)';
-  prompt.logWarning(
-    `Weak password: ${itemLabel(finding.item)}\n  Score: ${finding.score}/4 | Password: ${masked}\n  Reasons: ${finding.reasons.join(', ')}`,
-  );
-
-  const action = await prompt.confirm('Acknowledge this finding?', true);
-  if (action === null) return 'cancel';
-  return 'skip';
-}
-
-async function presentMissing(
-  finding: Extract<Finding, { category: 'missing' }>,
-  prompt: PromptAdapter,
-): Promise<FindingAction> {
-  prompt.logWarning(
-    `Missing fields: ${itemLabel(finding.item)}\n  Fields: ${finding.missingFields.join(', ')}`,
-  );
-
-  const action = await prompt.confirm('Acknowledge this finding?', true);
-  if (action === null) return 'cancel';
-  return 'skip';
-}
-
-async function presentFolder(
-  finding: Extract<Finding, { category: 'folders' }>,
-  prompt: PromptAdapter,
-  foldersNeeded: Set<string>,
-): Promise<FindingAction> {
-  const action = await prompt.select<'accept' | 'skip'>(
-    `Assign "${itemLabel(finding.item)}" to folder "${finding.suggestedFolder}"?`,
-    [
-      { value: 'accept', label: 'Accept', hint: `move to ${finding.suggestedFolder}` },
-      { value: 'skip', label: 'Skip' },
-    ],
-  );
-
-  if (action === null) return 'cancel';
-  if (action === 'skip') return 'skip';
-
-  const ops: PendingOp[] = [];
-  if (!finding.existingFolderId && !foldersNeeded.has(finding.suggestedFolder)) {
-    foldersNeeded.add(finding.suggestedFolder);
-    ops.push(makeCreateFolderOp(finding.suggestedFolder));
+  let suppressed = false;
+  if (onRuleSave && !ruleCaptureSuppressed && chosen !== suggested) {
+    const captureResult = await offerRuleCapture(
+      entry.finding.item, chosen, prompt, onRuleSave,
+    );
+    if (captureResult === 'suppressed') suppressed = true;
   }
-  ops.push(makeAssignFolderOp(finding.item.id, finding.existingFolderId, finding.suggestedFolder));
-  return ops;
-}
 
-async function presentReuse(
-  finding: Extract<Finding, { category: 'reuse' }>,
-  prompt: PromptAdapter,
-  maskChar: string,
-): Promise<FindingAction> {
-  const rawPassword = finding.items[0]?.login?.password;
-  const masked = rawPassword ? maskPassword(rawPassword, maskChar) : '(unavailable)';
-  const names = finding.items.map(i => itemLabel(i)).join('\n    ');
-  prompt.logWarning(
-    `Reused password (${masked}) across ${finding.items.length} items:\n    ${names}`,
-  );
-
-  const action = await prompt.confirm('Acknowledge this finding?', true);
-  if (action === null) return 'cancel';
-  return 'skip';
+  return { folder: chosen, suppressed };
 }

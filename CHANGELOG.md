@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.19] - 2026-04-26
+
+### Added
+- [MILESTONE 24 ✓] feat: implement milestone 24 (M25)
+## [0.3.18] - 2026-04-26
+
+### Added
+- Near-duplicate detection using Levenshtein distance. Items with similar names are flagged in the batch report. Configure via `dedup.name_similarity_threshold` (default: 3, set to 0 to disable). (M24)
+
+- [MILESTONE 23 ✓] feat: Implement Milestone 23: zxcvbn-ts Password Strength Integration (M24)
+## [0.3.17] - 2026-04-26
+
+### Added
+- Installed `zxcvbn-ts` (^2.0.2) and `@zxcvbn-ts/language-en` (^3.0.2) as runtime dependencies (M23)
+
+### Changed
+- Password strength scoring now uses zxcvbn-ts instead of heuristic rules. Passwords that passed heuristic checks but are weak by dictionary/pattern analysis (e.g., "Password1!", "Tr0ub4dor&3") will now be flagged. Falls back to heuristic scoring if zxcvbn-ts is unavailable. (M23)
+
+## [0.3.16] - 2026-04-26
+
+### Added
+- Interactive batch folder page display replacing the sequential one-at-a-time folder review loop (M21)
+## [0.3.15] - 2026-04-24
+
+### Added
+- **Interactive batch report category browser (clack + plain):** `renderBatchReport` is now async and presents informational findings via a category-selection prompt. When multiple categories exist (weak, reuse, missing), a `select` prompt lets users pick which category to view. Viewed categories are marked with a "viewed" hint. Users can select "Continue" or press Escape to dismiss. Single-category cases render directly without a select.
+
+## [0.3.14] - 2026-04-24
+
+### Added
+- Added `.describe()` calls to every field in `ConfigSchema` (all sub-schemas: CustomRule, Core, Paths, Audit, Strength, Dedup, Folders, UI, Logging, and the root schema) (M20)
+## [0.3.13] - 2026-04-24
+
+### Added
+- **Loop-back on safety confirm decline**: When the user's selections would delete all items in a group and they decline the safety confirmation, the multiselect is re-shown with their previous selections preserved (via `initialValues` in the clack adapter) so they can adjust. (M19)
+
+## [0.3.12] - 2026-04-24
+
+### Added
+- Replaced per-group single-select duplicate review with a flat multiselect across all duplicate groups (M17)
+## [0.3.11] - 2026-04-24
+
+### Added
+- Milestone 18: Live progress for the apply phase. (M18)
+
+## [0.3.10] - 2026-04-24
+
+### Added
+- Milestone 16: Folder classifier transparency & interactive rule capture. (M16)
+
+## [0.3.9] - 2026-04-24
+
+### Added
+- **Batch informational report**: Classified findings into "informational" (weak, reuse, missing) and "actionable" (duplicates, folders). Informational findings are now displayed in a consolidated batch report before the interactive review loop begins, instead of being prompted individually. The batch report groups findings by category and shows item details (name, URI, username, score, reasons, missing fields). Passwords are masked. If there are no informational findings, the batch section is skipped entirely. (M15)
+
 ## [0.3.8] - 2026-04-21
 
 ### Changed
@@ -16,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Narrowed bare `catch` in `src/commands/audit.ts` pending-file removal to only ignore ENOENT/NOT_FOUND; non-ENOENT errors now logged via `logger.warn('audit: failed to remove pending file after successful apply', ...)`.
 - `ensureConfigFileExists` in `src/commands/config-edit.ts` now re-throws non-ENOENT errors instead of silently swallowing them.
 - Expanded `UNSAFE_PATTERNS` in `src/adapters/logging.ts` to redact `*_CREDENTIAL*`, `*_AUTH`, `*API_KEY*`, and `*PASSPHRASE` context keys (defense-in-depth).
+- Rewrote `website/docs/user-guide/commands.md` with complete flag tables, exit codes, and usage for all 6 CLI commands (audit, resume, discard, report, doctor, config) including all config subcommands (show, get, set, path, edit, reset). Removed incorrect `--fix` flag from doctor. Added exit code reference table. (M14)
 ## [0.3.7] - 2026-04-21
 
 ### Added

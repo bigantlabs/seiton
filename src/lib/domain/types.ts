@@ -17,7 +17,7 @@ export const ItemTypeSchema = z.union([
 ]);
 
 export const BwLoginUriSchema = z.object({
-  match: z.number().nullable(),
+  match: z.number().nullable().optional(),
   uri: z.string().nullable(),
 }).passthrough();
 

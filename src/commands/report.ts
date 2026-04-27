@@ -1,7 +1,8 @@
 import type { Config } from '../config/schema.js';
 import type { BwAdapter } from '../lib/bw.js';
 import type { Logger } from '../adapters/logging.js';
-import type { Finding } from '../lib/domain/finding.js';
+import type { Finding, FindingCategory } from '../lib/domain/finding.js';
+import { FINDING_CATEGORIES } from '../lib/domain/finding.js';
 import { analyzeItems } from '../lib/analyze/index.js';
 import { redactItem } from '../lib/analyze/redact.js';
 
@@ -70,36 +71,55 @@ function filterFindings(
   });
 }
 
+const CATEGORY_LABELS: Record<FindingCategory, string> = {
+  duplicates: 'Duplicates',
+  reuse: 'Reused Passwords',
+  weak: 'Weak Passwords',
+  missing: 'Missing Fields',
+  folders: 'Folder Suggestions',
+  near_duplicates: 'Near-Duplicate Names',
+};
+
 export function formatFindingsText(findings: readonly Finding[]): string {
   if (findings.length === 0) return 'No findings. Vault looks clean.\n';
 
   const lines: string[] = [];
   lines.push(`Found ${findings.length} finding(s):\n`);
 
-  for (const f of findings) {
-    switch (f.category) {
-      case 'duplicates':
-        lines.push(`[duplicates] ${f.items.length} items share key "${f.key}"`);
-        for (const item of f.items) {
-          lines.push(`  - ${item.name} (${item.id})`);
-        }
-        break;
-      case 'reuse':
-        lines.push(`[reuse] ${f.items.length} items share the same password`);
-        for (const item of f.items) {
-          lines.push(`  - ${item.name} (${item.id})`);
-        }
-        break;
-      case 'weak':
-        lines.push(`[weak] ${f.item.name} (score ${f.score}/4): ${f.reasons.join(', ')}`);
-        break;
-      case 'missing':
-        lines.push(`[missing] ${f.item.name}: missing ${f.missingFields.join(', ')}`);
-        break;
-      case 'folders':
-        lines.push(`[folders] ${f.item.name} → suggested "${f.suggestedFolder}"`);
-        break;
+  for (const category of FINDING_CATEGORIES) {
+    const group = findings.filter(f => f.category === category);
+    if (group.length === 0) continue;
+
+    lines.push(`── ${CATEGORY_LABELS[category]} (${group.length}) ──`);
+    for (const f of group) {
+      switch (f.category) {
+        case 'duplicates':
+          lines.push(`  ${f.items.length} items share key "${f.key}"`);
+          for (const item of f.items) {
+            lines.push(`    - ${item.name} (${item.id})`);
+          }
+          break;
+        case 'reuse':
+          lines.push(`  ${f.items.length} items share the same password`);
+          for (const item of f.items) {
+            lines.push(`    - ${item.name} (${item.id})`);
+          }
+          break;
+        case 'weak':
+          lines.push(`  ${f.item.name} (score ${f.score}/4): ${f.reasons.join(', ')}`);
+          break;
+        case 'missing':
+          lines.push(`  ${f.item.name}: missing ${f.missingFields.join(', ')}`);
+          break;
+        case 'folders':
+          lines.push(`  ${f.item.name} → suggested "${f.suggestedFolder}"`);
+          break;
+        case 'near_duplicates':
+          lines.push(`  Similar names (distance ${f.maxDistance}): ${f.items.map(i => i.name).join(', ')}`);
+          break;
+      }
     }
+    lines.push('');
   }
 
   return lines.join('\n') + '\n';
@@ -154,6 +174,12 @@ function formatOneFindingJson(finding: Finding, maskChar: string): Record<string
         category: 'folders',
         item: redactItem(finding.item, maskChar),
         suggestedFolder: finding.suggestedFolder,
+      };
+    case 'near_duplicates':
+      return {
+        category: 'near_duplicates',
+        items: finding.items.map((i) => redactItem(i, maskChar)),
+        maxDistance: finding.maxDistance,
       };
   }
 }

@@ -1,21 +1,10 @@
 import type { BwItem } from '../domain/types.js';
+import type { RedactedItem } from './types.js';
+
+export type { RedactedItem } from './types.js';
 
 const REDACTED = '[REDACTED]';
 const MASKED_DEFAULT = '\u2022';
-
-export type RedactedItem = {
-  readonly id: string;
-  readonly name: string;
-  readonly type: number;
-  readonly folderId: string | null;
-  readonly login: {
-    readonly username: string | null;
-    readonly uris: readonly string[];
-    readonly password: string;
-    readonly totp: string;
-  } | null;
-  readonly revisionDate: string;
-};
 
 export function maskPassword(
   password: string | null | undefined,

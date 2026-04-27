@@ -13,6 +13,7 @@ export type PendingOpKind = (typeof PENDING_OP_KINDS)[number];
 export type DeleteItemOp = {
   readonly kind: 'delete_item';
   readonly itemId: string;
+  readonly label?: string;
 };
 
 export type AssignFolderOp = {
@@ -34,6 +35,7 @@ const ISO_8601_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\
 const DeleteItemOpSchema = z.object({
   kind: z.literal('delete_item'),
   itemId: z.string().min(1),
+  label: z.string().optional(),
 });
 
 const AssignFolderOpSchema = z.object({
@@ -65,8 +67,10 @@ export const PendingQueueSchema = z.object({
 
 export type PendingQueue = z.infer<typeof PendingQueueSchema>;
 
-export function makeDeleteItemOp(itemId: string): DeleteItemOp {
-  return { kind: 'delete_item', itemId };
+export function makeDeleteItemOp(itemId: string, label?: string): DeleteItemOp {
+  const op: DeleteItemOp = { kind: 'delete_item', itemId };
+  if (label) return { ...op, label };
+  return op;
 }
 
 export function makeAssignFolderOp(

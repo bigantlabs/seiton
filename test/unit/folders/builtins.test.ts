@@ -57,19 +57,22 @@ describe('builtinFolderForKeyword', () => {
 });
 
 describe('classifyItem', () => {
-  it('classifies GitHub as Development', () => {
+  it('classifies GitHub as Development with builtin match reason', () => {
     const result = classifyItem('GitHub', ['https://github.com'], [], ALL_CATEGORIES);
-    assert.equal(result, 'Development');
+    assert.deepEqual(result, { folder: 'Development', matchedKeyword: 'github', ruleSource: 'builtin' });
   });
 
   it('classifies by URI content', () => {
     const result = classifyItem('My Login', ['https://netflix.com/browse'], [], ALL_CATEGORIES);
-    assert.equal(result, 'Entertainment');
+    assert.equal(result?.folder, 'Entertainment');
+    assert.equal(result?.matchedKeyword, 'netflix');
+    assert.equal(result?.ruleSource, 'builtin');
   });
 
   it('classifies by name content', () => {
     const result = classifyItem('My PayPal Account', [], [], ALL_CATEGORIES);
-    assert.equal(result, 'Banking & Finance');
+    assert.equal(result?.folder, 'Banking & Finance');
+    assert.equal(result?.matchedKeyword, 'paypal');
   });
 
   it('returns null when no rule matches', () => {
@@ -80,7 +83,9 @@ describe('classifyItem', () => {
   it('custom rules take precedence over builtins', () => {
     const customRules = [{ folder: 'My Custom', keywords: ['github'] }];
     const result = classifyItem('GitHub', ['https://github.com'], customRules, ALL_CATEGORIES);
-    assert.equal(result, 'My Custom');
+    assert.equal(result?.folder, 'My Custom');
+    assert.equal(result?.ruleSource, 'custom');
+    assert.equal(result?.matchedKeyword, 'github');
   });
 
   it('respects first-match-wins for custom rules', () => {
@@ -89,7 +94,7 @@ describe('classifyItem', () => {
       { folder: 'Second Match', keywords: ['example'] },
     ];
     const result = classifyItem('example site', [], customRules, ALL_CATEGORIES);
-    assert.equal(result, 'First Match');
+    assert.equal(result?.folder, 'First Match');
   });
 
   it('respects enabled categories', () => {
@@ -99,17 +104,18 @@ describe('classifyItem', () => {
 
   it('classification is case-insensitive', () => {
     const result = classifyItem('GITHUB', ['HTTPS://GITHUB.COM'], [], ALL_CATEGORIES);
-    assert.equal(result, 'Development');
+    assert.equal(result?.folder, 'Development');
   });
 
   it('matches partial keyword in name', () => {
     const result = classifyItem('My Bank of America', [], [], ALL_CATEGORIES);
-    assert.equal(result, 'Banking & Finance');
+    assert.equal(result?.folder, 'Banking & Finance');
+    assert.equal(result?.matchedKeyword, 'bank');
   });
 
   it('matches partial keyword in URI', () => {
     const result = classifyItem('Login', ['https://gmail.com/inbox'], [], ALL_CATEGORIES);
-    assert.equal(result, 'Email');
+    assert.equal(result?.folder, 'Email');
   });
 
   it('handles empty URIs array', () => {
@@ -120,6 +126,8 @@ describe('classifyItem', () => {
   it('matches custom rule keyword in URI when name does not match', () => {
     const customRules = [{ folder: 'Crypto', keywords: ['binance'] }];
     const result = classifyItem('My Account', ['https://binance.com/trade'], customRules, ALL_CATEGORIES);
-    assert.equal(result, 'Crypto');
+    assert.equal(result?.folder, 'Crypto');
+    assert.equal(result?.ruleSource, 'custom');
+    assert.equal(result?.matchedKeyword, 'binance');
   });
 });

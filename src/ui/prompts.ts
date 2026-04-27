@@ -16,7 +16,7 @@ export interface PromptAdapter {
   cancelled(message?: string): void;
   select<T>(message: string, options: SelectOption<T>[]): Promise<T | null>;
   confirm(message: string, initial?: boolean): Promise<boolean | null>;
-  multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean): Promise<T[] | null>;
+  multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean, initialValues?: T[]): Promise<T[] | null>;
   text(message: string, placeholder?: string): Promise<string | null>;
   startSpinner(message: string): SpinnerHandle;
   logInfo(message: string): void;
@@ -68,10 +68,10 @@ function createClackAdapter(): PromptAdapter {
       return result;
     },
 
-    async multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean): Promise<T[] | null> {
+    async multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean, initialValues?: T[]): Promise<T[] | null> {
       if (isShuttingDown()) return null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await clack.multiselect({ message, options: options as any, required });
+      const result = await clack.multiselect({ message, options: options as any, required, initialValues: initialValues as any });
       if (clack.isCancel(result)) return null;
       return result as T[];
     },
@@ -153,12 +153,20 @@ function createPlainAdapter(): PromptAdapter {
       finally { rl.close(); }
     },
 
-    async multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean): Promise<T[] | null> {
+    async multiselect<T>(message: string, options: SelectOption<T>[], required?: boolean, initialValues?: T[]): Promise<T[] | null> {
       if (isShuttingDown()) return null;
       const rl = createInterface({ input: process.stdin, output: process.stdout });
       try {
-        const lines = options.map((o, i) => `  ${i + 1}) ${o.label}`);
-        process.stdout.write(`${message} (comma-separated numbers)\n${lines.join('\n')}\n`);
+        const lines = options.map((o, i) => `  ${i + 1}) ${o.label}${o.hint ? ` (${o.hint})` : ''}`);
+        let header = `${message} (comma-separated numbers)`;
+        if (initialValues && initialValues.length > 0) {
+          const initial = new Set(initialValues);
+          const prev = options
+            .map((o, i) => (initial.has(o.value) ? i + 1 : 0))
+            .filter(n => n > 0);
+          if (prev.length > 0) header += `\n[previously selected: ${prev.join(', ')}]`;
+        }
+        process.stdout.write(`${header}\n${lines.join('\n')}\n`);
         while (true) {
           const answer = await new Promise<string>((resolve, reject) => {
             const onClose = () => reject(new Error('cancelled'));
@@ -168,6 +176,9 @@ function createPlainAdapter(): PromptAdapter {
               resolve(ans);
             });
           });
+          if (answer.trim() === '' && initialValues && initialValues.length > 0) {
+            return [...initialValues];
+          }
           const indices = answer.split(',').map(s => parseInt(s.trim(), 10) - 1);
           const results: T[] = [];
           for (const idx of indices) {

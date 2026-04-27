@@ -8,16 +8,21 @@ import type { Finding } from '../lib/domain/finding.js';
 import type { PendingOp } from '../lib/domain/pending.js';
 import { ExitCode } from '../exit-codes.js';
 import { VERSION } from '../version.js';
-import { runPreflight } from './preflight.js';
+import { runPreflight, mapPreflightExit } from './preflight.js';
 import { applyOps } from './apply.js';
-import { collectOpsFromFindings, interactiveReview } from '../ui/review-loop.js';
+import { formatProgressMessage, formatApplySummary } from './apply-progress.js';
+import { collectOpsFromFindings, interactiveReview, type RuleSaveRequest } from '../ui/review-loop.js';
 import { savePendingOps, resolvePendingPath } from './pending-io.js';
 import { registerCleanup } from '../core/signals.js';
 import { createPromptAdapter, type PromptAdapter } from '../ui/prompts.js';
 import { analyzeItems } from '../lib/analyze/index.js';
+import { addCustomRule } from '../config/rules.js';
+import { resolveConfigHome } from '../config/paths.js';
+import { join } from 'node:path';
 
 export interface AuditOptions {
   config: Config;
+  configFilePath: string | null;
   bw: BwAdapter;
   fs: FsAdapter;
   clock: Clock;
@@ -102,6 +107,8 @@ async function executeAuditPipeline(
   }
 
   const items = itemsResult.data;
+  const existingFoldersByName = new Map(foldersResult.data.map(f => [f.name.toLowerCase(), f.id]));
+  const folderNamesById = new Map(foldersResult.data.map(f => [f.id, f.name]));
   fetchSpin.stop(`Fetched ${items.length} items, ${foldersResult.data.length} folders`);
 
   logger.info('audit: analyzing');
@@ -119,14 +126,38 @@ async function executeAuditPipeline(
   ];
   const limitPerCategory = cliLimit ?? config.audit.limit_per_category;
 
+  const configForWrite = opts.configFilePath
+    ?? join(resolveConfigHome(), 'seiton', 'config.json');
+
+  const onRuleSave = async (request: RuleSaveRequest): Promise<void> => {
+    const result = await addCustomRule(
+      configForWrite,
+      { folder: request.folder, keywords: [request.keyword] },
+      logger,
+    );
+    if (result.ok) {
+      prompt.logSuccess(`Rule saved: "${request.keyword}" → ${request.folder}`);
+    } else {
+      prompt.logWarning(`Could not save rule: ${result.error}`);
+    }
+  };
+
   const reviewResult = await runReview(findings, {
     skipCategories,
     limitPerCategory,
     logger,
     prompt,
+    promptStyle: config.ui.prompt_style,
     maskChar: config.ui.mask_character,
     dryRun,
+    enabledCategories: config.folders.enabled_categories,
+    existingFoldersByName,
+    folderNamesById,
+    stdin: process.stdin,
+    stdout: process.stdout,
+    isTTY: () => proc.isTTY('stdin') && proc.isTTY('stdout'),
     onProgress: (ops) => setPendingOps([...ops]),
+    onRuleSave,
   });
 
   logger.info('audit: review complete', {
@@ -173,10 +204,15 @@ async function executeAuditPipeline(
   const applyResult = await applyOps(reviewResult.ops, session, bw, logger, (applied) => {
     pendingSet.delete(applied);
     setPendingOps([...pendingSet]);
+  }, (progress) => {
+    applySpin.message(formatProgressMessage(progress));
   });
+
+  const summary = formatApplySummary(applyResult.timings, applyResult.failed.length);
 
   if (applyResult.failed.length > 0 || applyResult.remaining.length > 0) {
     applySpin.error(`${applyResult.applied} applied, ${applyResult.failed.length} failed, ${applyResult.remaining.length} remaining`);
+    prompt.logStep(summary);
     const persist = [...applyResult.failed, ...applyResult.remaining];
     const saved = await savePendingOps(persist, pendingPath, fs, clock, logger);
     setPendingOps([]);
@@ -189,6 +225,7 @@ async function executeAuditPipeline(
   }
 
   applySpin.stop(`${applyResult.applied} operations applied`);
+  prompt.logStep(summary);
   setPendingOps([]);
 
   try {
@@ -220,9 +257,17 @@ interface RunReviewOpts {
   limitPerCategory: number | null;
   logger?: Logger;
   prompt: PromptAdapter;
+  promptStyle?: import('../ui/prompts.js').PromptStyle;
   maskChar: string;
   dryRun: boolean;
+  enabledCategories: readonly string[];
+  existingFoldersByName: ReadonlyMap<string, string>;
+  folderNamesById?: ReadonlyMap<string, string>;
+  stdin?: NodeJS.ReadStream;
+  stdout?: NodeJS.WriteStream;
+  isTTY?: () => boolean;
   onProgress?: (ops: readonly PendingOp[]) => void;
+  onRuleSave?: (request: RuleSaveRequest) => Promise<void>;
 }
 
 async function runReview(
@@ -242,18 +287,16 @@ async function runReview(
     limitPerCategory: opts.limitPerCategory,
     logger: opts.logger,
     prompt: opts.prompt,
+    promptStyle: opts.promptStyle,
     maskChar: opts.maskChar,
+    enabledCategories: opts.enabledCategories,
+    existingFoldersByName: opts.existingFoldersByName,
+    folderNamesById: opts.folderNamesById,
+    stdin: opts.stdin,
+    stdout: opts.stdout,
+    isTTY: opts.isTTY,
     onProgress: opts.onProgress,
+    onRuleSave: opts.onRuleSave,
   });
 }
 
-function mapPreflightExit(code: string): ExitCode {
-  switch (code) {
-    case 'BW_NOT_FOUND': return ExitCode.UNAVAILABLE;
-    case 'BW_VERSION_FAILED': return ExitCode.UNAVAILABLE;
-    case 'VAULT_LOCKED': return ExitCode.NO_PERMISSION;
-    case 'SESSION_MISSING': return ExitCode.NO_PERMISSION;
-    case 'STATUS_FAILED': return ExitCode.GENERAL_ERROR;
-    default: return ExitCode.GENERAL_ERROR;
-  }
-}

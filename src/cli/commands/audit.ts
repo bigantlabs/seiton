@@ -2,7 +2,7 @@ import { parseArgs } from 'node:util';
 import { homedir } from 'node:os';
 import { ExitCode } from '../../exit-codes.js';
 import { applyNoColor } from '../no-color.js';
-import { loadConfigOrExit } from '../../config/loader.js';
+import { loadConfigWithPath, ConfigError } from '../../config/loader.js';
 import { createLogger, createNoopLogger } from '../../adapters/logging.js';
 import { createSystemClock } from '../../adapters/clock.js';
 import { createProcessAdapter } from '../../adapters/process.js';
@@ -75,11 +75,23 @@ export async function runAuditCli(argv: string[]): Promise<void> {
 
   const dryRun = Boolean(args.values['dry-run']);
 
-  const config = await loadConfigOrExit({
-    cliConfigPath: args.values.config as string | undefined,
-    envConfigPath: process.env['SEITON_CONFIG'],
-    logger: log,
-  }, 'audit');
+  let config;
+  let configPath: string | null;
+  try {
+    const loaded = await loadConfigWithPath({
+      cliConfigPath: args.values.config as string | undefined,
+      envConfigPath: process.env['SEITON_CONFIG'],
+      logger: log,
+    });
+    config = loaded.config;
+    configPath = loaded.path;
+  } catch (err: unknown) {
+    if (err instanceof ConfigError) {
+      process.stderr.write(`seiton: audit: ${err.message}\n`);
+      process.exit(ExitCode.USAGE);
+    }
+    throw err;
+  }
 
   const proc = createProcessAdapter(process.env, (code) => process.exit(code), log);
   const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? homedir();
@@ -102,6 +114,7 @@ export async function runAuditCli(argv: string[]): Promise<void> {
 
   await runAudit({
     config,
+    configFilePath: configPath,
     bw: bwAdapter,
     fs: fsAdapter,
     clock,

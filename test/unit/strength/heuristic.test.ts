@@ -6,7 +6,7 @@ import {
   collectWeaknesses,
   DEFAULT_STRENGTH_CONFIG,
 } from '../../../src/lib/strength/heuristic.js';
-import type { StrengthConfig } from '../../../src/lib/strength/heuristic.js';
+import type { StrengthConfig } from '../../../src/lib/strength/types.js';
 
 describe('isWeak', () => {
   it('flags short passwords', () => {

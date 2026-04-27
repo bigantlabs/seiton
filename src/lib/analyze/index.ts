@@ -1,114 +1,59 @@
-import { createHash } from 'node:crypto';
 import type { BwItem, BwFolder } from '../domain/types.js';
 import { ItemType } from '../domain/types.js';
 import type { Finding } from '../domain/finding.js';
 import {
-  makeDuplicateFinding,
-  makeReuseFinding,
   makeWeakFinding,
   makeMissingFinding,
   makeFolderFinding,
+  makeNearDuplicateFinding,
 } from '../domain/finding.js';
-import { dedupKey, dedupKeyMulti } from '../dedup/key.js';
-import { scorePassword, collectWeaknesses, type StrengthConfig } from '../strength/heuristic.js';
-import { classifyItem, type CustomRule } from '../folders/builtins.js';
+import { findNearDuplicateGroups } from '../dedup/near.js';
+import { findExactDuplicates } from '../dedup/exact.js';
+import { findReusedPasswords } from '../strength/reuse.js';
+import { scorePassword, collectWeaknesses } from '../strength/heuristic.js';
+import type { StrengthConfig } from '../strength/types.js';
+import { zxcvbnScore } from '../strength/zxcvbn.js';
+import { classifyItem } from '../folders/classify.js';
+import type { Scorer, AnalysisConfig } from './types.js';
 
-export interface AnalysisConfig {
-  readonly strength: {
-    readonly min_length: number;
-    readonly require_digit: boolean;
-    readonly require_symbol: boolean;
-    readonly min_character_classes: number;
-    readonly zxcvbn_min_score: number;
-    readonly extra_common_passwords: readonly string[];
-  };
-  readonly dedup: {
-    readonly treat_www_as_same_domain: boolean;
-    readonly case_insensitive_usernames: boolean;
-    readonly compare_only_primary_uri: boolean;
-  };
-  readonly folders: {
-    readonly preserve_existing: boolean;
-    readonly enabled_categories: readonly string[];
-    readonly custom_rules: readonly CustomRule[];
-  };
-}
+export type { Scorer, AnalysisConfig } from './types.js';
 
 export function analyzeItems(
   items: readonly BwItem[],
   config: AnalysisConfig,
   existingFolders: readonly BwFolder[] = [],
+  scorer?: Scorer,
 ): Finding[] {
   const logins = items.filter((i) => i.type === ItemType.LOGIN);
 
   return [
-    ...findDuplicates(logins, config.dedup),
+    ...findExactDuplicates(logins, config.dedup),
+    ...findNearDuplicates(logins, config.dedup),
     ...findReusedPasswords(logins),
-    ...findWeakPasswords(logins, config.strength),
+    ...findWeakPasswords(logins, config.strength, scorer),
     ...findMissingFields(logins),
     ...findFolderSuggestions(logins, config.folders, existingFolders),
   ];
 }
 
-function findDuplicates(
-  items: readonly BwItem[],
-  config: AnalysisConfig['dedup'],
-): Finding[] {
-  const groups = new Map<string, BwItem[]>();
-  const dedupOpts = {
-    treatWwwAsSameDomain: config.treat_www_as_same_domain,
-    caseInsensitiveUsernames: config.case_insensitive_usernames,
-  };
-  for (const item of items) {
-    const uris = item.login?.uris ?? [];
-    const key = config.compare_only_primary_uri
-      ? dedupKey(uris[0]?.uri, item.login?.username, dedupOpts)
-      : dedupKeyMulti(
-          uris.map((u) => u.uri).filter((u): u is string => u !== null),
-          item.login?.username,
-          dedupOpts,
-        );
-    if (!key || key.startsWith(':')) continue;
-    const group = groups.get(key);
-    if (group) group.push(item);
-    else groups.set(key, [item]);
+function probeScorer(fn: Scorer): boolean {
+  try {
+    fn('probe', []);
+    return true;
+  } catch {
+    // zxcvbn-fallback: deliberate recovery — probe must swallow load errors
+    return false;
   }
-
-  const findings: Finding[] = [];
-  for (const [key, group] of groups) {
-    if (group.length > 1) {
-      findings.push(makeDuplicateFinding(group, key));
-    }
-  }
-  return findings;
-}
-
-function findReusedPasswords(items: readonly BwItem[]): Finding[] {
-  const groups = new Map<string, BwItem[]>();
-  for (const item of items) {
-    const pw = item.login?.password;
-    if (!pw) continue;
-    const hash = createHash('sha256').update(pw).digest('hex');
-    const group = groups.get(hash);
-    if (group) group.push(item);
-    else groups.set(hash, [item]);
-  }
-
-  const findings: Finding[] = [];
-  let groupCounter = 0;
-  for (const [, group] of groups) {
-    if (group.length > 1) {
-      groupCounter++;
-      findings.push(makeReuseFinding(group, `reuse-group-${groupCounter}`));
-    }
-  }
-  return findings;
 }
 
 function findWeakPasswords(
   items: readonly BwItem[],
   config: AnalysisConfig['strength'],
+  scorer?: Scorer,
 ): Finding[] {
+  const candidate = scorer ?? zxcvbnScore;
+  const resolvedScorer = probeScorer(candidate) ? candidate : null;
+
   const strengthCfg: StrengthConfig = {
     minLength: config.min_length,
     requireDigit: config.require_digit,
@@ -121,9 +66,20 @@ function findWeakPasswords(
   for (const item of items) {
     const pw = item.login?.password;
     if (!pw) continue;
-    const score = scorePassword(pw, strengthCfg);
+
+    let score: number;
+    let reasons: readonly string[];
+
+    if (resolvedScorer) {
+      const result = resolvedScorer(pw, config.extra_common_passwords);
+      score = result.score;
+      reasons = result.feedback;
+    } else {
+      score = scorePassword(pw, strengthCfg);
+      reasons = collectWeaknesses(pw, strengthCfg);
+    }
+
     if (score < config.zxcvbn_min_score) {
-      const reasons = collectWeaknesses(pw, strengthCfg);
       findings.push(makeWeakFinding(item, score, reasons));
     }
   }
@@ -161,16 +117,29 @@ function findFolderSuggestions(
     const uris = (item.login?.uris ?? [])
       .map((u) => u.uri)
       .filter((u): u is string => u !== null);
-    const folder = classifyItem(
+    const result = classifyItem(
       item.name,
       uris,
       config.custom_rules,
       config.enabled_categories,
     );
-    if (folder) {
-      const existing = existingByName.get(folder.toLowerCase()) ?? null;
-      findings.push(makeFolderFinding(item, existing?.name ?? folder, existing?.id ?? null));
+    if (result) {
+      const existing = existingByName.get(result.folder.toLowerCase()) ?? null;
+      findings.push(makeFolderFinding(
+        item,
+        existing?.name ?? result.folder,
+        existing?.id ?? null,
+        { matchedKeyword: result.matchedKeyword, ruleSource: result.ruleSource },
+      ));
     }
   }
   return findings;
+}
+
+function findNearDuplicates(
+  items: readonly BwItem[],
+  config: AnalysisConfig['dedup'],
+): Finding[] {
+  const groups = findNearDuplicateGroups(items, config.name_similarity_threshold);
+  return groups.map((g) => makeNearDuplicateFinding(g.items, g.maxDistance));
 }

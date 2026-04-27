@@ -172,7 +172,12 @@ export function createBwAdapter(bwBinary?: string | null, logger?: Logger): BwAd
       }
       const parsed = z.array(BwItemSchema).safeParse(raw);
       if (!parsed.success) {
-        return { ok: false, error: makeBwError(BwErrorCode.SCHEMA_MISMATCH, 'Vault items failed schema validation') };
+        const issue = parsed.error.issues[0];
+        const path = issue?.path.length ? issue.path.join('.') : '(root)';
+        return { ok: false, error: makeBwError(
+          BwErrorCode.SCHEMA_MISMATCH,
+          `Vault items failed schema validation at ${path}: ${issue?.message ?? 'unknown error'}`,
+        ) };
       }
       return { ok: true, data: parsed.data };
     },

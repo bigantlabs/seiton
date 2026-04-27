@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "core": {
+    "output_format": "text",
+    "color": "auto",
+    "verbose": 0,
+    "quiet": false
+  },
+  "paths": {
+    "pending_queue": null,
+    "bw_binary": null
+  },
+  "audit": {
+    "skip_categories": [],
+    "limit_per_category": null,
+    "save_pending_on_sigint": true
+  },
+  "strength": {
+    "min_length": 12,
+    "require_digit": true,
+    "require_symbol": true,
+    "min_character_classes": 2,
+    "zxcvbn_min_score": 2,
+    "extra_common_passwords": []
+  },
+  "dedup": {
+    "name_similarity_threshold": 3,
+    "treat_www_as_same_domain": true,
+    "case_insensitive_usernames": true,
+    "compare_only_primary_uri": true
+  },
+  "folders": {
+    "preserve_existing": true,
+    "enabled_categories": [
+      "Banking & Finance",
+      "Email",
+      "Social",
+      "Shopping",
+      "Development",
+      "Entertainment",
+      "Utilities",
+      "Government & ID",
+      "Health"
+    ],
+    "custom_rules": []
+  },
+  "ui": {
+    "mask_character": "•",
+    "show_revision_date": true,
+    "color_scheme": "auto",
+    "prompt_style": "clack"
+  },
+  "logging": {
+    "format": "text",
+    "level": "info"
+  }
+}

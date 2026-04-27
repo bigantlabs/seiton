@@ -2,22 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { collectOpsFromFindings } from '../../../src/ui/review-loop.js';
 import type { Finding } from '../../../src/lib/domain/finding.js';
-import type { BwItem } from '../../../src/lib/domain/types.js';
-
-function makeItem(overrides: Partial<BwItem> = {}): BwItem {
-  return {
-    id: 'test-id',
-    organizationId: null,
-    folderId: null,
-    type: 1,
-    name: 'Test Item',
-    notes: null,
-    favorite: false,
-    login: { uris: null, username: 'user', password: 'pass', totp: null },
-    revisionDate: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
+import { makeItem } from '../../helpers/make-item.js';
 
 describe('collectOpsFromFindings', () => {
   it('returns empty ops for empty findings', () => {
@@ -76,7 +61,7 @@ describe('collectOpsFromFindings', () => {
   it('creates folder ops for folder findings', () => {
     const item = makeItem({ id: 'item-1' });
     const findings: Finding[] = [
-      { category: 'folders', item, suggestedFolder: 'Banking', existingFolderId: null },
+      { category: 'folders', item, suggestedFolder: 'Banking', existingFolderId: null, matchReason: { matchedKeyword: 'bank', ruleSource: 'builtin' } },
     ];
     const result = collectOpsFromFindings(findings, {
       skipCategories: [],
@@ -89,8 +74,8 @@ describe('collectOpsFromFindings', () => {
 
   it('deduplicates create_folder ops for same folder', () => {
     const findings: Finding[] = [
-      { category: 'folders', item: makeItem({ id: '1' }), suggestedFolder: 'Banking', existingFolderId: null },
-      { category: 'folders', item: makeItem({ id: '2' }), suggestedFolder: 'Banking', existingFolderId: null },
+      { category: 'folders', item: makeItem({ id: '1' }), suggestedFolder: 'Banking', existingFolderId: null, matchReason: { matchedKeyword: 'bank', ruleSource: 'builtin' } },
+      { category: 'folders', item: makeItem({ id: '2' }), suggestedFolder: 'Banking', existingFolderId: null, matchReason: { matchedKeyword: 'bank', ruleSource: 'builtin' } },
     ];
     const result = collectOpsFromFindings(findings, {
       skipCategories: [],
@@ -98,5 +83,42 @@ describe('collectOpsFromFindings', () => {
     });
     const createOps = result.ops.filter((op) => op.kind === 'create_folder');
     assert.equal(createOps.length, 1);
+  });
+
+  it('skips create_folder when existingFolderId is set', () => {
+    const findings: Finding[] = [
+      { category: 'folders', item: makeItem({ id: 'item-1' }), suggestedFolder: 'Banking', existingFolderId: 'folder-123', matchReason: { matchedKeyword: 'bank', ruleSource: 'builtin' } },
+    ];
+    const result = collectOpsFromFindings(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+    });
+    assert.equal(result.ops.length, 1);
+    assert.equal(result.ops[0]!.kind, 'assign_folder');
+    if (result.ops[0]!.kind === 'assign_folder') {
+      assert.equal(result.ops[0]!.folderId, 'folder-123');
+    }
+  });
+
+  it('produces no ops for informational categories (weak, reuse, missing)', () => {
+    const findings: Finding[] = [
+      { category: 'weak', item: makeItem({ id: '1' }), score: 1, reasons: ['short'] },
+      { category: 'reuse', items: [makeItem({ id: '2' }), makeItem({ id: '3' })], passwordHash: 'hash' },
+      { category: 'missing', item: makeItem({ id: '4' }), missingFields: ['password'] },
+    ];
+    const result = collectOpsFromFindings(findings, {
+      skipCategories: [],
+      limitPerCategory: null,
+    });
+    assert.equal(result.ops.length, 0);
+    assert.equal(result.reviewed, 3);
+  });
+
+  it('always returns cancelled as false', () => {
+    const result = collectOpsFromFindings([], {
+      skipCategories: [],
+      limitPerCategory: null,
+    });
+    assert.equal(result.cancelled, false);
   });
 });

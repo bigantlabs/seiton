@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   BwItemSchema,
+  BwLoginUriSchema,
   BwFolderSchema,
   ItemType,
   BwErrorCode,
@@ -125,6 +126,73 @@ describe('BwItemSchema', () => {
     assert.equal(result.success, true);
     if (result.success) {
       assert.deepEqual(result.data.login?.uris, []);
+    }
+  });
+});
+
+describe('BwLoginUriSchema', () => {
+  it('parses URI object with match field present', () => {
+    const result = BwLoginUriSchema.safeParse({ match: 0, uri: 'https://example.com' });
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal(result.data.match, 0);
+      assert.equal(result.data.uri, 'https://example.com');
+    }
+  });
+
+  it('parses URI object with match field null', () => {
+    const result = BwLoginUriSchema.safeParse({ match: null, uri: 'https://example.com' });
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal(result.data.match, null);
+    }
+  });
+
+  it('parses URI object without match field (optional)', () => {
+    const result = BwLoginUriSchema.safeParse({ uri: 'https://example.com' });
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal(result.data.match, undefined);
+      assert.equal(result.data.uri, 'https://example.com');
+    }
+  });
+
+  it('parses full item containing a login URI without match field', () => {
+    const item = {
+      id: 'test-no-match',
+      organizationId: null,
+      folderId: null,
+      type: 1,
+      name: 'No Match Field Login',
+      notes: null,
+      favorite: false,
+      revisionDate: '2024-06-01T00:00:00.000Z',
+      login: {
+        uris: [{ uri: 'https://nomatch.example.com' }],
+        username: 'user@example.com',
+        password: 'secret',
+        totp: null,
+        passwordRevisionDate: null,
+      },
+    };
+    const result = BwItemSchema.safeParse(item);
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal(result.data.login?.uris?.[0]?.match, undefined);
+      assert.equal(result.data.login?.uris?.[0]?.uri, 'https://nomatch.example.com');
+    }
+  });
+
+  it('rejects URI object with invalid match type', () => {
+    const result = BwLoginUriSchema.safeParse({ match: 'bad', uri: 'https://example.com' });
+    assert.equal(result.success, false);
+  });
+
+  it('preserves unknown fields via passthrough', () => {
+    const result = BwLoginUriSchema.safeParse({ uri: 'https://example.com', extraField: 42 });
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal((result.data as Record<string, unknown>)['extraField'], 42);
     }
   });
 });

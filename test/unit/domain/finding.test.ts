@@ -2,12 +2,16 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   FINDING_CATEGORIES,
+  INFORMATIONAL_CATEGORIES,
+  ACTIONABLE_CATEGORIES,
   isFindingCategory,
+  isInformationalCategory,
   makeDuplicateFinding,
   makeReuseFinding,
   makeWeakFinding,
   makeMissingFinding,
   makeFolderFinding,
+  makeNearDuplicateFinding,
 } from '../../../src/lib/domain/finding.js';
 import type { Finding } from '../../../src/lib/domain/finding.js';
 import type { BwItem } from '../../../src/lib/domain/types.js';
@@ -31,13 +35,13 @@ const STUB_ITEM: BwItem = {
 };
 
 describe('FINDING_CATEGORIES', () => {
-  it('contains exactly 5 categories', () => {
-    assert.equal(FINDING_CATEGORIES.length, 5);
+  it('contains exactly 6 categories', () => {
+    assert.equal(FINDING_CATEGORIES.length, 6);
   });
 
   it('contains expected category names', () => {
     assert.deepEqual([...FINDING_CATEGORIES], [
-      'duplicates', 'reuse', 'weak', 'missing', 'folders',
+      'duplicates', 'reuse', 'weak', 'missing', 'folders', 'near_duplicates',
     ]);
   });
 });
@@ -85,10 +89,53 @@ describe('Finding construction', () => {
     assert.deepEqual([...finding.missingFields], ['password', 'uri']);
   });
 
-  it('constructs FolderFinding', () => {
+  it('constructs FolderFinding with default null existingFolderId', () => {
     const finding = makeFolderFinding(STUB_ITEM, 'Development');
     assert.equal(finding.category, 'folders');
     assert.equal(finding.suggestedFolder, 'Development');
+    assert.equal(finding.existingFolderId, null);
+  });
+
+  it('constructs FolderFinding with explicit existingFolderId', () => {
+    const finding = makeFolderFinding(STUB_ITEM, 'Development', 'folder-xyz');
+    assert.equal(finding.category, 'folders');
+    assert.equal(finding.suggestedFolder, 'Development');
+    assert.equal(finding.existingFolderId, 'folder-xyz');
+  });
+
+  it('constructs NearDuplicateFinding', () => {
+    const finding = makeNearDuplicateFinding([STUB_ITEM, STUB_ITEM], 2);
+    assert.equal(finding.category, 'near_duplicates');
+    assert.equal(finding.items.length, 2);
+    assert.equal(finding.maxDistance, 2);
+  });
+});
+
+describe('finding classification', () => {
+  it('classifies weak, reuse, missing, and near_duplicates as informational', () => {
+    assert.equal(isInformationalCategory('weak'), true);
+    assert.equal(isInformationalCategory('reuse'), true);
+    assert.equal(isInformationalCategory('missing'), true);
+    assert.equal(isInformationalCategory('near_duplicates'), true);
+  });
+
+  it('classifies duplicates and folders as actionable', () => {
+    assert.equal(isInformationalCategory('duplicates'), false);
+    assert.equal(isInformationalCategory('folders'), false);
+  });
+
+  it('INFORMATIONAL_CATEGORIES contains weak, reuse, missing, near_duplicates', () => {
+    assert.deepEqual([...INFORMATIONAL_CATEGORIES], ['weak', 'reuse', 'missing', 'near_duplicates']);
+  });
+
+  it('ACTIONABLE_CATEGORIES contains duplicates, folders', () => {
+    assert.deepEqual([...ACTIONABLE_CATEGORIES], ['duplicates', 'folders']);
+  });
+
+  it('informational + actionable covers all categories', () => {
+    const all = [...INFORMATIONAL_CATEGORIES, ...ACTIONABLE_CATEGORIES].sort();
+    const expected = [...FINDING_CATEGORIES].sort();
+    assert.deepEqual(all, expected);
   });
 });
 
@@ -100,10 +147,11 @@ describe('Finding discriminant', () => {
       makeWeakFinding(STUB_ITEM, 2, ['reason']),
       makeMissingFinding(STUB_ITEM, ['field']),
       makeFolderFinding(STUB_ITEM, 'Folder'),
+      makeNearDuplicateFinding([STUB_ITEM, STUB_ITEM], 1),
     ];
 
     const categories = findings.map((f) => f.category);
-    assert.deepEqual(categories, ['duplicates', 'reuse', 'weak', 'missing', 'folders']);
+    assert.deepEqual(categories, ['duplicates', 'reuse', 'weak', 'missing', 'folders', 'near_duplicates']);
   });
 
   it('allows narrowing via switch on category', () => {
@@ -118,6 +166,7 @@ describe('Finding discriminant', () => {
       case 'reuse':
       case 'missing':
       case 'folders':
+      case 'near_duplicates':
         assert.fail('should have matched weak');
         break;
     }

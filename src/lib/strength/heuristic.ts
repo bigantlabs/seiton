@@ -5,13 +5,9 @@ const COMMON_SUBSTRINGS = [
   'iloveyou', 'batman', 'access', 'hello', 'charlie',
 ] as const;
 
-export type StrengthConfig = {
-  readonly minLength: number;
-  readonly requireDigit: boolean;
-  readonly requireSymbol: boolean;
-  readonly minCharacterClasses: number;
-  readonly extraCommonPasswords: readonly string[];
-};
+import type { StrengthConfig } from './types.js';
+
+export type { StrengthConfig } from './types.js';
 
 export const DEFAULT_STRENGTH_CONFIG: StrengthConfig = {
   minLength: 12,
