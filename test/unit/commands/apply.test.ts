@@ -2,8 +2,9 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyOps, type ApplyProgress } from '../../../src/commands/apply.js';
 import type { PendingOp } from '../../../src/lib/domain/pending.js';
-import { makeBwError, BwErrorCode } from '../../../src/lib/domain/types.js';
+import { makeBwError, BwErrorCode, type BwItem } from '../../../src/lib/domain/types.js';
 import { makeFakeAdapter } from '../../helpers/fake-adapter.js';
+import { makeItem } from '../../helpers/make-item.js';
 
 describe('applyOps', () => {
   it('returns zero applied for empty ops', async () => {
@@ -197,5 +198,73 @@ describe('applyOps', () => {
     assert.equal(events[0].failedSoFar, 0);
     assert.equal(events[1].failedSoFar, 1);
     assert.equal(events[2].failedSoFar, 2);
+  });
+
+  it('uses itemCache instead of getItem when cache is provided', async () => {
+    let getItemCalls = 0;
+    const cachedItem = makeItem({ id: 'item-1', folderId: null });
+    const itemCache = new Map<string, BwItem>([['item-1', cachedItem]]);
+    const ops: PendingOp[] = [
+      { kind: 'assign_folder', itemId: 'item-1', folderId: 'folder-1', folderName: 'Test' },
+    ];
+    let editedPayload = '';
+    const bw = makeFakeAdapter({
+      getItem: async (_session, itemId) => {
+        getItemCalls++;
+        return { ok: true, data: makeItem({ id: itemId }) };
+      },
+      editItem: async (_session, _itemId, encoded) => {
+        editedPayload = Buffer.from(encoded, 'base64').toString();
+        return { ok: true, data: undefined };
+      },
+    });
+    const result = await applyOps(ops, 'session', bw, undefined, undefined, undefined, itemCache);
+    assert.equal(getItemCalls, 0);
+    assert.equal(result.applied, 1);
+    const parsed = JSON.parse(editedPayload);
+    assert.equal(parsed.folderId, 'folder-1');
+    assert.equal(parsed.id, 'item-1');
+  });
+
+  it('falls back to getItem on cache miss', async () => {
+    let getItemCalls = 0;
+    const itemCache = new Map<string, BwItem>();
+    const ops: PendingOp[] = [
+      { kind: 'assign_folder', itemId: 'item-1', folderId: 'folder-1', folderName: 'Test' },
+    ];
+    const bw = makeFakeAdapter({
+      getItem: async (_session, itemId) => {
+        getItemCalls++;
+        return { ok: true, data: makeItem({ id: itemId }) };
+      },
+    });
+    const result = await applyOps(ops, 'session', bw, undefined, undefined, undefined, itemCache);
+    assert.equal(getItemCalls, 1);
+    assert.equal(result.applied, 1);
+  });
+
+  it('reports cache hits and misses in timings', async () => {
+    const item1 = makeItem({ id: 'item-1' });
+    const itemCache = new Map<string, BwItem>([['item-1', item1]]);
+    const ops: PendingOp[] = [
+      { kind: 'assign_folder', itemId: 'item-1', folderId: 'f1', folderName: 'A' },
+      { kind: 'assign_folder', itemId: 'item-2', folderId: 'f2', folderName: 'B' },
+    ];
+    const bw = makeFakeAdapter();
+    const result = await applyOps(ops, 'session', bw, undefined, undefined, undefined, itemCache);
+    assert.equal(result.timings.cacheHits, 1);
+    assert.equal(result.timings.cacheMisses, 1);
+    assert.equal(result.applied, 2);
+  });
+
+  it('returns zero cache stats when no cache provided', async () => {
+    const ops: PendingOp[] = [
+      { kind: 'assign_folder', itemId: 'item-1', folderId: 'f1', folderName: 'Dev' },
+    ];
+    const bw = makeFakeAdapter();
+    const result = await applyOps(ops, 'session', bw);
+    assert.equal(result.timings.cacheHits, 0);
+    assert.equal(result.timings.cacheMisses, 1);
+    assert.equal(result.applied, 1);
   });
 });

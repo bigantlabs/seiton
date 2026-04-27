@@ -50,6 +50,10 @@ export function formatApplySummary(timings: ApplyTimings, totalFailed: number): 
     lines.push(`  ${label}: ${countStr} in ${duration}`);
   }
 
+  if (timings.cacheHits > 0 || timings.cacheMisses > 0) {
+    lines.push(`  Cache: ${timings.cacheHits} hits, ${timings.cacheMisses} misses`);
+  }
+
   const totalDuration = formatDuration(timings.totalDurationMs);
   const totalOps = timings.create_folder.count + timings.assign_folder.count + timings.delete_item.count;
   const failSuffix = totalFailed > 0 ? ` (${totalFailed} failed)` : '';

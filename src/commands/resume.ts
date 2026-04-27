@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import type { BwAdapter } from '../lib/bw.js';
+import type { BwItem } from '../lib/domain/types.js';
 import type { FsAdapter } from '../adapters/fs.js';
 import type { Clock } from '../adapters/clock.js';
 import type { Logger } from '../adapters/logging.js';
@@ -68,6 +69,7 @@ export async function resumeApply(
   ops: readonly PendingOp[],
   pendingPath: string,
   opts: ResumeOptions,
+  itemCache?: ReadonlyMap<string, BwItem>,
 ): Promise<ResumeApplyOutcome> {
   const { session, bw, fs, clock, logger } = opts;
   const pendingSet = new Set(ops);
@@ -81,7 +83,7 @@ export async function resumeApply(
   try {
     const result = await applyOps(ops, session, bw, logger, (applied) => {
       pendingSet.delete(applied);
-    });
+    }, undefined, itemCache);
 
     let savedRemaining = true;
     let pendingCleanupFailed = false;

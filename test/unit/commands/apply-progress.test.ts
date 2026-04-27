@@ -69,6 +69,8 @@ describe('formatApplySummary', () => {
       assign_folder: { count: 30, succeeded: 30, durationMs: 8400 },
       delete_item: { count: 7, succeeded: 7, durationMs: 2100 },
       totalDurationMs: 11700,
+      cacheHits: 0,
+      cacheMisses: 0,
     };
     const summary = formatApplySummary(timings, 0);
     assert.ok(summary.includes('Created folders: 5 in 1.2s'));
@@ -84,6 +86,8 @@ describe('formatApplySummary', () => {
       assign_folder: { count: 3, succeeded: 2, durationMs: 900 },
       delete_item: { count: 0, succeeded: 0, durationMs: 0 },
       totalDurationMs: 1400,
+      cacheHits: 0,
+      cacheMisses: 0,
     };
     const summary = formatApplySummary(timings, 2);
     assert.ok(summary.includes('(2 failed)'));
@@ -97,6 +101,8 @@ describe('formatApplySummary', () => {
       assign_folder: { count: 10, succeeded: 10, durationMs: 3000 },
       delete_item: { count: 0, succeeded: 0, durationMs: 0 },
       totalDurationMs: 3000,
+      cacheHits: 0,
+      cacheMisses: 0,
     };
     const summary = formatApplySummary(timings, 0);
     assert.ok(!summary.includes('Created folders'));
@@ -111,6 +117,8 @@ describe('formatApplySummary', () => {
       assign_folder: { count: 0, succeeded: 0, durationMs: 0 },
       delete_item: { count: 0, succeeded: 0, durationMs: 0 },
       totalDurationMs: 150,
+      cacheHits: 0,
+      cacheMisses: 0,
     };
     const summary = formatApplySummary(timings, 0);
     assert.ok(summary.includes('Created folders: 1 in 150ms'));
@@ -123,6 +131,8 @@ describe('formatApplySummary', () => {
       assign_folder: { count: 0, succeeded: 0, durationMs: 0 },
       delete_item: { count: 0, succeeded: 0, durationMs: 0 },
       totalDurationMs: 900,
+      cacheHits: 0,
+      cacheMisses: 0,
     };
     const summary = formatApplySummary(timings, 3);
     assert.ok(summary.includes('(3 failed)'));
@@ -136,11 +146,65 @@ describe('formatApplySummary', () => {
       assign_folder: { count: 0, succeeded: 0, durationMs: 0 },
       delete_item: { count: 0, succeeded: 0, durationMs: 0 },
       totalDurationMs: 1000,
+      cacheHits: 0,
+      cacheMisses: 0,
     };
     const summary = formatApplySummary(timings, 0);
     assert.ok(summary.includes('Created folders: 2 in 1.0s'));
     assert.ok(summary.includes('Total: 2 ops in 1.0s'));
     assert.ok(!summary.includes('1000ms'));
+  });
+
+  it('includes cache line when hits and misses are both non-zero', () => {
+    const timings: ApplyTimings = {
+      create_folder: { count: 0, succeeded: 0, durationMs: 0 },
+      assign_folder: { count: 5, succeeded: 5, durationMs: 2000 },
+      delete_item: { count: 0, succeeded: 0, durationMs: 0 },
+      totalDurationMs: 2000,
+      cacheHits: 3,
+      cacheMisses: 2,
+    };
+    const summary = formatApplySummary(timings, 0);
+    assert.ok(summary.includes('Cache: 3 hits, 2 misses'));
+  });
+
+  it('includes cache line when only hits are non-zero', () => {
+    const timings: ApplyTimings = {
+      create_folder: { count: 0, succeeded: 0, durationMs: 0 },
+      assign_folder: { count: 2, succeeded: 2, durationMs: 500 },
+      delete_item: { count: 0, succeeded: 0, durationMs: 0 },
+      totalDurationMs: 500,
+      cacheHits: 2,
+      cacheMisses: 0,
+    };
+    const summary = formatApplySummary(timings, 0);
+    assert.ok(summary.includes('Cache: 2 hits, 0 misses'));
+  });
+
+  it('includes cache line when only misses are non-zero', () => {
+    const timings: ApplyTimings = {
+      create_folder: { count: 0, succeeded: 0, durationMs: 0 },
+      assign_folder: { count: 1, succeeded: 1, durationMs: 300 },
+      delete_item: { count: 0, succeeded: 0, durationMs: 0 },
+      totalDurationMs: 300,
+      cacheHits: 0,
+      cacheMisses: 1,
+    };
+    const summary = formatApplySummary(timings, 0);
+    assert.ok(summary.includes('Cache: 0 hits, 1 misses'));
+  });
+
+  it('omits cache line when both hits and misses are zero', () => {
+    const timings: ApplyTimings = {
+      create_folder: { count: 1, succeeded: 1, durationMs: 200 },
+      assign_folder: { count: 0, succeeded: 0, durationMs: 0 },
+      delete_item: { count: 0, succeeded: 0, durationMs: 0 },
+      totalDurationMs: 200,
+      cacheHits: 0,
+      cacheMisses: 0,
+    };
+    const summary = formatApplySummary(timings, 0);
+    assert.ok(!summary.includes('Cache:'));
   });
 });
 

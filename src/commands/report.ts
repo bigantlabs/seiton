@@ -5,6 +5,7 @@ import type { Finding, FindingCategory } from '../lib/domain/finding.js';
 import { FINDING_CATEGORIES } from '../lib/domain/finding.js';
 import { analyzeItems } from '../lib/analyze/index.js';
 import { redactItem } from '../lib/analyze/redact.js';
+import { REPORT_SCHEMA_VERSION } from '../report/schema.js';
 
 export type ReportResult =
   | { ok: true; findings: readonly Finding[]; itemCount: number; folderCount: number }
@@ -132,7 +133,7 @@ export function formatFindingsJson(
   folderCount: number,
 ): string {
   const report = {
-    version: 1,
+    version: REPORT_SCHEMA_VERSION,
     summary: {
       totalItems: itemCount,
       totalFolders: folderCount,

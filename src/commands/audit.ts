@@ -107,6 +107,7 @@ async function executeAuditPipeline(
   }
 
   const items = itemsResult.data;
+  const itemCacheMap = new Map(items.map(item => [item.id, item]));
   const existingFoldersByName = new Map(foldersResult.data.map(f => [f.name.toLowerCase(), f.id]));
   const folderNamesById = new Map(foldersResult.data.map(f => [f.id, f.name]));
   fetchSpin.stop(`Fetched ${items.length} items, ${foldersResult.data.length} folders`);
@@ -206,7 +207,7 @@ async function executeAuditPipeline(
     setPendingOps([...pendingSet]);
   }, (progress) => {
     applySpin.message(formatProgressMessage(progress));
-  });
+  }, itemCacheMap);
 
   const summary = formatApplySummary(applyResult.timings, applyResult.failed.length);
 
@@ -227,7 +228,6 @@ async function executeAuditPipeline(
   applySpin.stop(`${applyResult.applied} operations applied`);
   prompt.logStep(summary);
   setPendingOps([]);
-
   try {
     await fs.remove(pendingPath);
   } catch (err: unknown) {
@@ -240,7 +240,6 @@ async function executeAuditPipeline(
       );
     }
   }
-
   logger.info('audit: syncing vault');
   const syncResult = await bw.sync(session);
   if (!syncResult.ok) {
@@ -299,4 +298,3 @@ async function runReview(
     onRuleSave: opts.onRuleSave,
   });
 }
-

@@ -12,6 +12,7 @@ import { VERSION } from '../../version.js';
 import { homedir } from 'node:os';
 import { installSignalHandlers } from '../../core/signals.js';
 import { loadPendingOps, resumeApply } from '../../commands/resume.js';
+import type { BwItem } from '../../lib/domain/types.js';
 import type { PendingOp } from '../../lib/domain/pending.js';
 
 const RESUME_HELP = `seiton resume — resume a previously interrupted audit session
@@ -122,6 +123,19 @@ export async function runResumeCli(argv: string[]): Promise<void> {
   const fsAdapter = createFsAdapter(homeDir, log);
   const bwAdapter = createBwAdapter(config.paths.bw_binary, log);
 
+  const prefetchSpin = prompt.startSpinner('Fetching vault items for cache…');
+  const itemsResult = await bwAdapter.listItems(session);
+  let itemCache: ReadonlyMap<string, BwItem> | undefined;
+  if (itemsResult.ok) {
+    itemCache = new Map(itemsResult.data.map(item => [item.id, item]));
+    prefetchSpin.stop(`Cached ${itemsResult.data.length} items`);
+  } else {
+    prefetchSpin.stop('Cache unavailable — falling back to per-item fetch');
+    log.warn('resume: listItems failed, falling back to uncached apply', {
+      error: itemsResult.error.message,
+    });
+  }
+
   const applySpin = prompt.startSpinner(`Applying ${loaded.ops.length} operations…`);
   const result = await resumeApply(loaded.ops, loaded.path, {
     session,
@@ -129,7 +143,7 @@ export async function runResumeCli(argv: string[]): Promise<void> {
     fs: fsAdapter,
     clock,
     logger: log,
-  });
+  }, itemCache);
 
   if (result.failed.length > 0 || result.remaining.length > 0) {
     applySpin.error(`${result.applied} applied, ${result.failed.length} failed, ${result.remaining.length} remaining`);

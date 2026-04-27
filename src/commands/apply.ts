@@ -1,5 +1,6 @@
 import { performance } from 'node:perf_hooks';
 import type { BwAdapter } from '../lib/bw.js';
+import type { BwItem } from '../lib/domain/types.js';
 import type { PendingOp, PendingOpKind } from '../lib/domain/pending.js';
 import type { Logger } from '../adapters/logging.js';
 
@@ -24,6 +25,8 @@ export interface ApplyTimings {
   assign_folder: PhaseTiming;
   delete_item: PhaseTiming;
   totalDurationMs: number;
+  cacheHits: number;
+  cacheMisses: number;
 }
 
 export interface ApplyResult {
@@ -40,6 +43,7 @@ export async function applyOps(
   logger?: Logger,
   onApplied?: (op: PendingOp) => void,
   onProgress?: (progress: ApplyProgress) => void,
+  itemCache?: ReadonlyMap<string, BwItem>,
 ): Promise<ApplyResult> {
   const remaining = [...ops];
   const failed: PendingOp[] = [];
@@ -58,6 +62,8 @@ export async function applyOps(
     assign_folder: { count: assignOps.length, succeeded: 0, durationMs: 0 },
     delete_item: { count: deleteOps.length, succeeded: 0, durationMs: 0 },
     totalDurationMs: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
   };
 
   const totalStart = performance.now();
@@ -107,7 +113,18 @@ export async function applyOps(
     }
 
     logger?.info('apply: assigning folder', { itemId: op.itemId, folderName: op.folderName });
-    const itemResult = await bw.getItem(session, op.itemId);
+    const cached = itemCache?.get(op.itemId);
+    if (cached) {
+      timings.cacheHits++;
+      logger?.debug('apply: item cache hit', { itemId: op.itemId });
+    }
+    const itemResult = cached
+      ? { ok: true as const, data: cached }
+      : await bw.getItem(session, op.itemId);
+    if (!cached) {
+      timings.cacheMisses++;
+      logger?.debug('apply: item cache miss, used getItem', { itemId: op.itemId });
+    }
     if (!itemResult.ok) {
       logger?.error('apply: fetch item failed', { itemId: op.itemId, error: itemResult.error.message });
       const persistOp = folderId !== op.folderId ? { ...op, folderId } : op;
