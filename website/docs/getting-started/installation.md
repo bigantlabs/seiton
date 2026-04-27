@@ -12,7 +12,7 @@ sidebar_position: 1
 ## Install from npm
 
 ```bash
-npm install -g seiton
+npm install -g @bigantlabs/seiton
 ```
 
 Verify the installation:
@@ -26,8 +26,8 @@ seiton --version
 You can verify the downloaded package against published checksums:
 
 ```bash
-curl -LO "https://github.com/AntPerez69367/seiton/releases/download/v$(seiton --version)/SHA256SUMS"
-curl -LO "https://github.com/AntPerez69367/seiton/releases/download/v$(seiton --version)/seiton-$(seiton --version).tgz"
+curl -LO "https://github.com/bigantlabs/seiton/releases/download/v$(seiton --version)/SHA256SUMS"
+curl -LO "https://github.com/bigantlabs/seiton/releases/download/v$(seiton --version)/bigantlabs-seiton-$(seiton --version).tgz"
 
 # Linux
 sha256sum --ignore-missing -c SHA256SUMS

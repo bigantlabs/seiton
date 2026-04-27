@@ -14,7 +14,7 @@ sidebar_position: 1
 ## Getting Started
 
 ```bash
-git clone https://github.com/seiton-cli/seiton.git
+git clone https://github.com/bigantlabs/seiton.git
 cd seiton
 nvm use            # picks up .nvmrc
 npm install

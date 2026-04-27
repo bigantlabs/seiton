@@ -11,10 +11,10 @@ const config: Config = {
 		v4: true,
 	},
 
-	url: "https://antperez69367.github.io",
+	url: "https://bigantlabs.github.io",
 	baseUrl: "/seiton/",
 
-	organizationName: "antperez69367",
+	organizationName: "bigantlabs",
 	projectName: "seiton",
 
 	onBrokenLinks: "throw",
@@ -55,7 +55,7 @@ const config: Config = {
 					label: "Documentation",
 				},
 				{
-					href: "https://github.com/seiton-cli/seiton",
+					href: "https://github.com/bigantlabs/seiton",
 					label: "GitHub",
 					position: "right",
 				},
@@ -81,8 +81,8 @@ const config: Config = {
 				{
 					title: "More",
 					items: [
-						{ label: "GitHub", href: "https://github.com/seiton-cli/seiton" },
-						{ label: "npm", href: "https://www.npmjs.com/package/seiton" },
+						{ label: "GitHub", href: "https://github.com/bigantlabs/seiton" },
+						{ label: "npm", href: "https://www.npmjs.com/package/@bigantlabs/seiton" },
 					],
 				},
 			],

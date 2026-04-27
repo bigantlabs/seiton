@@ -33,7 +33,7 @@ jobs:
         run: npm pack
 
       - name: Generate SHA256SUMS
-        run: sha256sum seiton-*.tgz > SHA256SUMS
+        run: sha256sum bigantlabs-seiton-*.tgz > SHA256SUMS
 
       - name: Verify tag matches package.json version
         env:
@@ -51,7 +51,7 @@ jobs:
         with:
           name: release-artifacts
           path: |
-            seiton-*.tgz
+            bigantlabs-seiton-*.tgz
             SHA256SUMS
 
   publish-npm:
@@ -76,10 +76,11 @@ jobs:
       - name: Verify artifact checksum
         run: sha256sum -c SHA256SUMS
 
+      - name: Upgrade npm (Trusted Publishing requires npm >= 11.5.1)
+        run: npm install -g npm@latest
+
       - name: Publish from pre-built tarball
-        run: npm publish seiton-*.tgz --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish bigantlabs-seiton-*.tgz --provenance --access public
 
   github-release:
     needs: [build, smoke-test]
@@ -113,7 +114,7 @@ jobs:
         with:
           body_path: release-notes.md
           files: |
-            seiton-*.tgz
+            bigantlabs-seiton-*.tgz
             SHA256SUMS
           fail_on_unmatched_files: true
 
@@ -132,7 +133,7 @@ jobs:
         run: sha256sum -c SHA256SUMS
 
       - name: Install from tarball
-        run: npm install -g seiton-*.tgz
+        run: npm install -g bigantlabs-seiton-*.tgz
 
       - name: Verify --help
         run: seiton --help

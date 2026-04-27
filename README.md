@@ -4,7 +4,7 @@ An interactive command-line auditor for [Bitwarden](https://bitwarden.com/) vaul
 
 The name derives from Japanese 整頓 ("set in order"), one of the five principles of the 5S workplace-organization methodology.
 
-**[Documentation](https://antperez69367.github.io/seiton/)**
+**[Documentation](https://bigantlabs.github.io/seiton/)**
 
 ## Features
 
@@ -23,7 +23,7 @@ The name derives from Japanese 整頓 ("set in order"), one of the five principl
 ## Install
 
 ```sh
-npm install -g seiton
+npm install -g @bigantlabs/seiton
 ```
 
 Verify the installation:
@@ -73,7 +73,7 @@ seiton config set strength.min_length 14
 seiton config edit
 ```
 
-See the [configuration reference](https://antperez69367.github.io/seiton/docs/user-guide/configuration) for all available options.
+See the [configuration reference](https://bigantlabs.github.io/seiton/docs/user-guide/configuration) for all available options.
 
 ## Platform Support
 

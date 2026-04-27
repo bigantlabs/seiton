@@ -146,7 +146,7 @@ function buildSeeAlsoSection(): string {
   return `.SH SEE ALSO
 .BR bw (1)
 .PP
-Project homepage: https://github.com/AntPerez69367/seiton`;
+Project homepage: https://github.com/bigantlabs/seiton`;
 }
 
 function writeArtifact(relPath: string, content: string): void {
