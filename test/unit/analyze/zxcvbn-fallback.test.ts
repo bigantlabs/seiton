@@ -1,20 +1,12 @@
-import { describe, it, mock } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import type { AnalysisConfig } from '../../../src/lib/analyze/index.js';
+import { analyzeItems, type AnalysisConfig, type Scorer } from '../../../src/lib/analyze/index.js';
+import { makeItem } from '../../helpers/make-item.js';
+import { scorePassword, collectWeaknesses } from '../../../src/lib/strength/heuristic.js';
 
-mock.module('../../../src/lib/strength/zxcvbn.js', {
-  namedExports: {
-    zxcvbnScore() {
-      throw new Error('zxcvbn unavailable');
-    },
-  },
-});
-
-const { analyzeItems } = await import('../../../src/lib/analyze/index.js');
-const { makeItem } = await import('../../helpers/make-item.js');
-const { scorePassword, collectWeaknesses } = await import(
-  '../../../src/lib/strength/heuristic.js'
-);
+const throwingScorer: Scorer = () => {
+  throw new Error('zxcvbn unavailable');
+};
 
 function makeConfig(overrides?: Partial<AnalysisConfig>): AnalysisConfig {
   return {
@@ -27,6 +19,7 @@ function makeConfig(overrides?: Partial<AnalysisConfig>): AnalysisConfig {
       extra_common_passwords: [],
     },
     dedup: {
+      name_similarity_threshold: 3,
       treat_www_as_same_domain: true,
       case_insensitive_usernames: true,
       compare_only_primary_uri: true,
@@ -41,7 +34,7 @@ function makeConfig(overrides?: Partial<AnalysisConfig>): AnalysisConfig {
 }
 
 describe('analyzeItems heuristic fallback (zxcvbn unavailable)', () => {
-  it('produces weak-password findings using heuristic scoring when zxcvbn throws', () => {
+  it('produces weak-password findings using heuristic scoring when scorer throws', () => {
     const items = [
       makeItem({
         id: '1',
@@ -54,7 +47,7 @@ describe('analyzeItems heuristic fallback (zxcvbn unavailable)', () => {
       }),
     ];
     const config = makeConfig();
-    const findings = analyzeItems(items, config);
+    const findings = analyzeItems(items, config, [], throwingScorer);
     const weak = findings.filter((f) => f.category === 'weak');
 
     assert.ok(weak.length > 0, 'heuristic fallback should still flag weak passwords');
@@ -97,7 +90,7 @@ describe('analyzeItems heuristic fallback (zxcvbn unavailable)', () => {
       }),
     ];
     const config = makeConfig();
-    const findings = analyzeItems(items, config);
+    const findings = analyzeItems(items, config, [], throwingScorer);
     const weak = findings.filter((f) => f.category === 'weak');
 
     assert.equal(weak.length, 1);
@@ -111,7 +104,7 @@ describe('analyzeItems heuristic fallback (zxcvbn unavailable)', () => {
     }
   });
 
-  it('does not flag Password1! under heuristic path, confirming probeZxcvbn returned false', () => {
+  it('does not flag Password1! under heuristic path when scorer throws', () => {
     const items = [
       makeItem({
         id: '1',
@@ -133,18 +126,18 @@ describe('analyzeItems heuristic fallback (zxcvbn unavailable)', () => {
         extra_common_passwords: [],
       },
     });
-    const findings = analyzeItems(items, config);
+    const findings = analyzeItems(items, config, [], throwingScorer);
     const weak = findings.filter((f) => f.category === 'weak');
 
     assert.equal(
       weak.length,
       0,
       'Password1! scores 3 under heuristic (passes min_score 2) but 0 under zxcvbn — ' +
-        'zero weak findings proves heuristic path is active because probeZxcvbn returned false',
+        'zero weak findings proves heuristic path is active',
     );
   });
 
-  it('probeZxcvbn returns false when zxcvbnScore throws, verified via non-empty findings', () => {
+  it('falls back to heuristic and flags single-char password when scorer throws', () => {
     const items = [
       makeItem({
         id: '1',
@@ -157,12 +150,12 @@ describe('analyzeItems heuristic fallback (zxcvbn unavailable)', () => {
       }),
     ];
     const config = makeConfig();
-    const findings = analyzeItems(items, config);
+    const findings = analyzeItems(items, config, [], throwingScorer);
     const weak = findings.filter((f) => f.category === 'weak');
 
     assert.ok(
       weak.length > 0,
-      'probeZxcvbn caught the throw and returned false; heuristic path then flagged single-char password',
+      'throwing scorer triggers heuristic fallback; heuristic path flags single-char password',
     );
   });
 });

@@ -11,8 +11,13 @@ import { findNearDuplicateGroups } from '../dedup/near.js';
 import { findExactDuplicates } from '../dedup/exact.js';
 import { findReusedPasswords } from '../strength/reuse.js';
 import { scorePassword, collectWeaknesses, type StrengthConfig } from '../strength/heuristic.js';
-import { zxcvbnScore } from '../strength/zxcvbn.js';
+import { zxcvbnScore, type ZxcvbnScoreResult } from '../strength/zxcvbn.js';
 import { classifyItem, type CustomRuleEntry } from '../folders/classify.js';
+
+export type Scorer = (
+  password: string,
+  userDictionary: readonly string[],
+) => ZxcvbnScoreResult;
 
 export interface AnalysisConfig {
   readonly strength: {
@@ -40,6 +45,7 @@ export function analyzeItems(
   items: readonly BwItem[],
   config: AnalysisConfig,
   existingFolders: readonly BwFolder[] = [],
+  scorer?: Scorer,
 ): Finding[] {
   const logins = items.filter((i) => i.type === ItemType.LOGIN);
 
@@ -47,15 +53,15 @@ export function analyzeItems(
     ...findExactDuplicates(logins, config.dedup),
     ...findNearDuplicates(logins, config.dedup),
     ...findReusedPasswords(logins),
-    ...findWeakPasswords(logins, config.strength),
+    ...findWeakPasswords(logins, config.strength, scorer),
     ...findMissingFields(logins),
     ...findFolderSuggestions(logins, config.folders, existingFolders),
   ];
 }
 
-function probeZxcvbn(): boolean {
+function probeScorer(fn: Scorer): boolean {
   try {
-    zxcvbnScore('probe', []);
+    fn('probe', []);
     return true;
   } catch {
     return false;
@@ -65,12 +71,10 @@ function probeZxcvbn(): boolean {
 function findWeakPasswords(
   items: readonly BwItem[],
   config: AnalysisConfig['strength'],
-  logger?: { warn(msg: string): void },
+  scorer?: Scorer,
 ): Finding[] {
-  const useZxcvbn = probeZxcvbn();
-  if (!useZxcvbn && logger) {
-    logger.warn('zxcvbn-ts unavailable; falling back to heuristic scoring');
-  }
+  const candidate = scorer ?? zxcvbnScore;
+  const resolvedScorer = probeScorer(candidate) ? candidate : null;
 
   const strengthCfg: StrengthConfig = {
     minLength: config.min_length,
@@ -88,8 +92,8 @@ function findWeakPasswords(
     let score: number;
     let reasons: readonly string[];
 
-    if (useZxcvbn) {
-      const result = zxcvbnScore(pw, config.extra_common_passwords);
+    if (resolvedScorer) {
+      const result = resolvedScorer(pw, config.extra_common_passwords);
       score = result.score;
       reasons = result.feedback;
     } else {
