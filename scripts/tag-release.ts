@@ -14,7 +14,7 @@ const tag = `v${pkg.version}`;
 
 function tagExists(): boolean {
   try {
-    execFileSync('git', ['rev-parse', '--verify', `refs/tags/${tag}`], {
+    execFileSync('git', ['ls-remote', '--exit-code', 'origin', `refs/tags/${tag}`], {
       cwd: root,
       stdio: 'ignore',
     });
