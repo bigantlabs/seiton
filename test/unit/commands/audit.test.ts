@@ -19,6 +19,7 @@ function makeDefaultConfig(overrides?: Partial<Config>): Config {
     folders: { preserve_existing: true, enabled_categories: ['Banking & Finance'], custom_rules: [] },
     ui: { mask_character: '•', show_revision_date: true, color_scheme: 'auto', prompt_style: 'clack' },
     logging: { format: 'text', level: 'info' },
+    bw_serve: { enabled: false, port: 8087, startup_timeout_ms: 5000 },
     ...overrides,
   } as Config;
 }

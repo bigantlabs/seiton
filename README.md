@@ -75,6 +75,22 @@ seiton config edit
 
 See the [configuration reference](https://bigantlabs.github.io/seiton/docs/user-guide/configuration) for all available options.
 
+## Contributing Changes
+
+This project uses [changesets](https://github.com/changesets/changesets) to track changes and automate releases.
+
+**Adding a changeset when your PR modifies source code:**
+
+```sh
+npx changeset
+```
+
+Follow the prompts to select a bump type (patch, minor, or major) and describe your change. This creates a `.changeset/<name>.md` file — commit it with your PR.
+
+**What happens when a PR merges:** The changesets bot opens a "Version Packages" PR that bumps the version, updates `CHANGELOG.md`, and consumes all pending changeset files. Merging that PR triggers the release workflow.
+
+**Skipping the requirement:** If your PR doesn't touch source code (e.g., docs-only or CI config), add the `no-changelog-needed` label to bypass the changeset check.
+
 ## Platform Support
 
 Linux and macOS are first-class targets. Windows is currently untested and unsupported.

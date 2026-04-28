@@ -1,0 +1,30 @@
+name: Release Plan
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  changesets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: changesets/action@c8bada60c408975afd1a20b3db81d6eee6789551 # v1
+        with:
+          version: npm run changeset:version
+          publish: node --import tsx scripts/tag-release.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

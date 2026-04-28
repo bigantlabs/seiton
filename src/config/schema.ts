@@ -77,7 +77,16 @@ const LoggingSchema = z.object({
   level: z.enum(['error', 'warn', 'info', 'debug']).default('info').describe('Minimum log level'),
 }).strict().describe('Logging configuration');
 
-const SECTION_KEYS = ['core', 'paths', 'audit', 'strength', 'dedup', 'folders', 'ui', 'logging'] as const;
+const BwServeSchema = z.object({
+  enabled: z.boolean().default(false)
+    .describe('Enable bw serve HTTP backend for faster vault operations'),
+  port: z.number().int().min(1024).max(65535).default(8087)
+    .describe('Port for the bw serve local REST API'),
+  startup_timeout_ms: z.number().int().min(1000).max(30000).default(5000)
+    .describe('Maximum time in ms to wait for bw serve to become ready'),
+}).strict().describe('bw serve HTTP backend settings (opt-in, default off)');
+
+const SECTION_KEYS = ['core', 'paths', 'audit', 'strength', 'dedup', 'folders', 'ui', 'logging', 'bw_serve'] as const;
 
 const RawConfigSchema = z.object({
   version: z.literal(1).describe('Config file format version (must be 1)'),
@@ -89,6 +98,7 @@ const RawConfigSchema = z.object({
   folders: FoldersSchema.optional(),
   ui: UiSchema.optional(),
   logging: LoggingSchema.optional(),
+  bw_serve: BwServeSchema.optional(),
 }).strict().describe('seiton configuration');
 
 export { RawConfigSchema as ConfigSchema };
@@ -136,6 +146,7 @@ export type Config = z.output<typeof RawConfigSchema> & {
   folders: z.output<typeof FoldersSchema>;
   ui: z.output<typeof UiSchema>;
   logging: z.output<typeof LoggingSchema>;
+  bw_serve: z.output<typeof BwServeSchema>;
 };
 
 export type CustomRule = z.infer<typeof CustomRuleSchema>;

@@ -101,9 +101,9 @@ jobs:
         run: |
           TAG_VERSION="${TAG_REF#v}"
           awk -v ver="$TAG_VERSION" '
-            /^## \[/ {
+            /^## / {
               if (found) exit
-              if (index($0, "[" ver "]")) found=1
+              if (index($0, ver) > 0) found=1
               next
             }
             found { print }

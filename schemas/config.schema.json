@@ -353,6 +353,37 @@
       ],
       "additionalProperties": false,
       "description": "Logging configuration"
+    },
+    "bw_serve": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable bw serve HTTP backend for faster vault operations",
+          "type": "boolean"
+        },
+        "port": {
+          "default": 8087,
+          "description": "Port for the bw serve local REST API",
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65535
+        },
+        "startup_timeout_ms": {
+          "default": 5000,
+          "description": "Maximum time in ms to wait for bw serve to become ready",
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 30000
+        }
+      },
+      "required": [
+        "enabled",
+        "port",
+        "startup_timeout_ms"
+      ],
+      "additionalProperties": false,
+      "description": "bw serve HTTP backend settings (opt-in, default off)"
     }
   },
   "required": [

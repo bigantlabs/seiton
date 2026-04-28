@@ -61,6 +61,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Install Bitwarden CLI
+        run: npm install -g @bitwarden/cli
       - run: npm run test:integration
 
   docs-freshness:
@@ -79,7 +81,7 @@ jobs:
       - name: Check for uncommitted schema/doc drift
         run: git diff --exit-code
 
-  changelog:
+  changeset-check:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -93,7 +95,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Run changelog enforcement test
+      - name: Run changeset enforcement test
         env:
           NO_CHANGELOG: ${{ contains(github.event.pull_request.labels.*.name, 'no-changelog-needed') && '1' || '0' }}
         run: node --import tsx test/changelog.test.ts

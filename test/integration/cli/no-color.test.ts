@@ -11,6 +11,7 @@ async function runWithNoColor(command: string[], extraEnv: Record<string, string
       NODE_NO_WARNINGS: '1',
       SEITON_CONFIG: undefined,
       NO_COLOR: undefined,
+      BW_SESSION: 'integration-test-session',
       ...extraEnv,
     },
   });

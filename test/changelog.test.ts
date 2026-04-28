@@ -10,6 +10,9 @@ const SOURCE_TRIGGER_PATTERNS = [
   /^src\/report\//,
 ];
 
+const CHANGESET_PATTERN = /^\.changeset\/[^/]+\.md$/;
+const CHANGESET_EXCLUDED = new Set(['.changeset/README.md']);
+
 function getChangedFiles(): string[] | null {
   try {
     const output = execFileSync(
@@ -47,14 +50,14 @@ function hasOriginMain(): boolean {
   }
 }
 
-describe('changelog enforcement', () => {
+describe('changeset enforcement', () => {
   const skipReason = !isInGitRepo()
     ? 'not in a git repository'
     : !hasOriginMain()
       ? 'origin/main not available'
       : null;
 
-  it('source trigger files require CHANGELOG.md update', { skip: skipReason ?? undefined }, () => {
+  it('source trigger files require a changeset', { skip: skipReason ?? undefined }, () => {
     if (process.env['NO_CHANGELOG'] === '1') return;
 
     const changedFiles = getChangedFiles();
@@ -68,16 +71,18 @@ describe('changelog enforcement', () => {
 
     if (!hasTriggerFile) return;
 
-    const hasChangelog = changedFiles.includes('CHANGELOG.md');
+    const hasChangeset = changedFiles.some(
+      (file) => CHANGESET_PATTERN.test(file) && !CHANGESET_EXCLUDED.has(file),
+    );
     assert.ok(
-      hasChangelog,
-      'Source trigger files were modified but CHANGELOG.md was not updated. ' +
-        'Either update CHANGELOG.md or set NO_CHANGELOG=1 (requires no-changelog-needed label in CI).',
+      hasChangeset,
+      'Source trigger files were modified but no changeset was added. ' +
+        'Run "npx changeset" to add one, or set NO_CHANGELOG=1 (requires no-changelog-needed label in CI).',
     );
   });
 
   it('passes when NO_CHANGELOG=1 is set', { skip: skipReason ?? undefined }, () => {
     if (process.env['NO_CHANGELOG'] !== '1') return;
-    assert.ok(true, 'NO_CHANGELOG=1 bypasses changelog requirement');
+    assert.ok(true, 'NO_CHANGELOG=1 bypasses changeset requirement');
   });
 });

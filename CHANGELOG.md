@@ -1,17 +1,26 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## [0.3.24] - 2026-04-27
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### Added
+- **`bw serve` HTTP backend** — opt-in `bw_serve` config section (`enabled`, `port`, `startup_timeout_ms`) enables using `bw serve` as a local REST API for vault operations, eliminating per-call subprocess startup overhead. Falls back to the CLI adapter when serve is unavailable. (M30)
+- Milestone 31: Changesets Bootstrap — installed `@changesets/cli` and `@changesets/changelog-github`, created the `.changeset/` configuration directory, added a version-sync script, and wired npm convenience scripts. (M31)
 
-## [Unreleased]
+### Security
+- **Replaced `zxcvbn-ts@^2.0.2` with `@zxcvbn-ts/core@^3.0.4` + `@zxcvbn-ts/language-common@^3.0.4`.** The previously-installed `zxcvbn-ts` was an unrelated third-party package (author: "Kunal Tanwar") that holds the unscoped name on npm; it is not the official zxcvbn TypeScript port. The legitimate port lives under the `@zxcvbn-ts/*` scope (the same scope that ships `@zxcvbn-ts/language-en`, which this project was already using). No malicious behavior was identified in the squatted package, but for a credential-auditing tool this constitutes a supply-chain near-miss and is corrected here. `src/lib/strength/zxcvbn.ts` was rewritten to use the official package's API (`zxcvbn`, `zxcvbnOptions.setOptions`).
+
+### Changed
+- `DEPENDENCIES.md` updated to list `@zxcvbn-ts/core`, `@zxcvbn-ts/language-common`, and `@zxcvbn-ts/language-en` as the corrected runtime dependencies (all under the official `@zxcvbn-ts/*` scope).
+- `test-integration` CI job now installs `@bitwarden/cli` before running integration tests, fixing a regression where `seiton doctor` exited non-zero in CI because `bw` was not on PATH.
+- Milestone 33: Changelog Migration Cleanup — completed the keep-a-changelog to changesets transition by removing legacy artifacts and updating contributor documentation. (M33)
 
 ## [0.3.23] - 2026-04-27
 
 ### Changed
 - Moved to bigantlabs org
 
+- Milestone 30: `bw serve` HTTP Backend for Near-Instant Operations. (M30)
+- Milestone 32: Changesets CI Integration — wired `changesets/action@v1` into GitHub Actions, replaced changelog enforcement with changeset-presence checks, updated release note extraction for dual-format headings, and fixed a prior bug in sync-version.ts. (M32)
 ## [0.3.22] - 2026-04-27
 
 ### Added

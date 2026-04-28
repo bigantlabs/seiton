@@ -12,6 +12,7 @@ import { VERSION } from '../../version.js';
 import { homedir } from 'node:os';
 import { installSignalHandlers } from '../../core/signals.js';
 import { loadPendingOps, resumeApply } from '../../commands/resume.js';
+import { tryStartServe, stopServe } from '../../commands/serve-bridge.js';
 import type { BwItem } from '../../lib/domain/types.js';
 import type { PendingOp } from '../../lib/domain/pending.js';
 
@@ -121,7 +122,15 @@ export async function runResumeCli(argv: string[]): Promise<void> {
 
   const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? homedir();
   const fsAdapter = createFsAdapter(homeDir, log);
-  const bwAdapter = createBwAdapter(config.paths.bw_binary, log);
+  const cliBwAdapter = createBwAdapter(config.paths.bw_binary, log);
+
+  const serve = await tryStartServe(config, session, cliBwAdapter, log);
+  const bwAdapter = serve.bw;
+  if (config.bw_serve.enabled && serve.serveHandle) {
+    prompt.logSuccess(`bw serve ready on port ${config.bw_serve.port}`);
+  } else if (config.bw_serve.enabled) {
+    prompt.logWarning('bw serve unavailable — using CLI (slower)');
+  }
 
   const prefetchSpin = prompt.startSpinner('Fetching vault items for cache…');
   const itemsResult = await bwAdapter.listItems(session);
@@ -147,6 +156,7 @@ export async function runResumeCli(argv: string[]): Promise<void> {
 
   if (result.failed.length > 0 || result.remaining.length > 0) {
     applySpin.error(`${result.applied} applied, ${result.failed.length} failed, ${result.remaining.length} remaining`);
+    await stopServe(serve.serveHandle, log);
     prompt.outro(
       result.savedRemaining
         ? 'Resume finished with errors. Remaining ops saved.'
@@ -156,6 +166,7 @@ export async function runResumeCli(argv: string[]): Promise<void> {
   }
 
   applySpin.stop(`${result.applied} operations applied`);
+  await stopServe(serve.serveHandle, log);
   if (result.pendingCleanupFailed) {
     prompt.logWarning(
       `Could not remove pending queue at ${loaded.path}. Delete it manually before running "seiton resume" again to avoid re-applying completed operations.`,

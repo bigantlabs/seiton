@@ -4,21 +4,22 @@ import type { Clock } from '../adapters/clock.js';
 import type { FsAdapter } from '../adapters/fs.js';
 import type { ProcessAdapter } from '../adapters/process.js';
 import type { BwAdapter } from '../lib/bw.js';
-import type { Finding } from '../lib/domain/finding.js';
 import type { PendingOp } from '../lib/domain/pending.js';
 import { ExitCode } from '../exit-codes.js';
 import { VERSION } from '../version.js';
 import { runPreflight, mapPreflightExit } from './preflight.js';
 import { applyOps } from './apply.js';
 import { formatProgressMessage, formatApplySummary } from './apply-progress.js';
-import { collectOpsFromFindings, interactiveReview, type RuleSaveRequest } from '../ui/review-loop.js';
+import type { RuleSaveRequest } from '../ui/review-loop.js';
 import { savePendingOps, resolvePendingPath } from './pending-io.js';
 import { registerCleanup } from '../core/signals.js';
-import { createPromptAdapter, type PromptAdapter } from '../ui/prompts.js';
+import { createPromptAdapter } from '../ui/prompts.js';
 import { analyzeItems } from '../lib/analyze/index.js';
 import { addCustomRule } from '../config/rules.js';
 import { resolveConfigHome } from '../config/paths.js';
 import { join } from 'node:path';
+import { tryStartServe, stopServe } from './serve-bridge.js';
+import { runReview } from './audit-review.js';
 
 export interface AuditOptions {
   config: Config;
@@ -69,7 +70,8 @@ async function executeAuditPipeline(
   pendingPath: string,
   setPendingOps: (ops: PendingOp[]) => void,
 ): Promise<never> {
-  const { config, bw, fs, clock, proc, logger, dryRun, cliSkipCategories, cliLimit } = opts;
+  const { config, fs, clock, proc, logger, dryRun, cliSkipCategories, cliLimit } = opts;
+  let bw = opts.bw;
   const prompt = createPromptAdapter(config.ui.prompt_style);
 
   prompt.intro(`seiton v${VERSION} — vault audit`);
@@ -85,6 +87,14 @@ async function executeAuditPipeline(
     return proc.exit(exitCode);
   }
   preflightSpin.stop(`Preflight passed (bw ${preflight.data.bwVersion})`);
+
+  const serve = await tryStartServe(config, session, opts.bw, logger);
+  bw = serve.bw;
+  if (config.bw_serve.enabled && serve.serveHandle) {
+    prompt.logSuccess(`bw serve ready on port ${config.bw_serve.port}`);
+  } else if (config.bw_serve.enabled) {
+    prompt.logWarning('bw serve unavailable — using CLI (slower)');
+  }
 
   logger.info('audit: fetching vault', { bwVersion: preflight.data.bwVersion });
   const fetchSpin = prompt.startSpinner('Fetching vault…');
@@ -169,12 +179,14 @@ async function executeAuditPipeline(
   });
 
   if (dryRun) {
+    await stopServe(serve.serveHandle, logger);
     prompt.logInfo(`Dry-run complete. ${reviewResult.ops.length} operations would be applied.`);
     prompt.outro('Dry-run finished — no changes made.');
     return proc.exit(ExitCode.SUCCESS);
   }
 
   if (reviewResult.cancelled) {
+    await stopServe(serve.serveHandle, logger);
     setPendingOps(reviewResult.ops);
     if (reviewResult.ops.length > 0) {
       const saved = await savePendingOps(reviewResult.ops, pendingPath, fs, clock, logger);
@@ -192,6 +204,7 @@ async function executeAuditPipeline(
   }
 
   if (reviewResult.ops.length === 0) {
+    await stopServe(serve.serveHandle, logger);
     prompt.logSuccess('No findings require action. Vault is clean.');
     prompt.outro('Audit complete — nothing to do.');
     return proc.exit(ExitCode.SUCCESS);
@@ -217,6 +230,7 @@ async function executeAuditPipeline(
     const persist = [...applyResult.failed, ...applyResult.remaining];
     const saved = await savePendingOps(persist, pendingPath, fs, clock, logger);
     setPendingOps([]);
+    await stopServe(serve.serveHandle, logger);
     prompt.outro(
       saved
         ? 'Audit finished with errors. Remaining ops saved to pending queue.'
@@ -247,54 +261,9 @@ async function executeAuditPipeline(
     prompt.logWarning('Vault sync failed (non-fatal). Changes are local until next sync.');
   }
 
+  await stopServe(serve.serveHandle, logger);
+
   prompt.outro(`Audit complete. ${applyResult.applied} operations applied.`);
   return proc.exit(ExitCode.SUCCESS);
 }
 
-interface RunReviewOpts {
-  skipCategories: readonly string[];
-  limitPerCategory: number | null;
-  logger?: Logger;
-  prompt: PromptAdapter;
-  promptStyle?: import('../ui/prompts.js').PromptStyle;
-  maskChar: string;
-  dryRun: boolean;
-  enabledCategories: readonly string[];
-  existingFoldersByName: ReadonlyMap<string, string>;
-  folderNamesById?: ReadonlyMap<string, string>;
-  stdin?: NodeJS.ReadStream;
-  stdout?: NodeJS.WriteStream;
-  isTTY?: () => boolean;
-  onProgress?: (ops: readonly PendingOp[]) => void;
-  onRuleSave?: (request: RuleSaveRequest) => Promise<void>;
-}
-
-async function runReview(
-  findings: readonly Finding[],
-  opts: RunReviewOpts,
-): Promise<{ ops: PendingOp[]; reviewed: number; skipped: number; cancelled: boolean }> {
-  if (opts.dryRun) {
-    return collectOpsFromFindings(findings, {
-      skipCategories: opts.skipCategories,
-      limitPerCategory: opts.limitPerCategory,
-      logger: opts.logger,
-    });
-  }
-
-  return interactiveReview(findings, {
-    skipCategories: opts.skipCategories,
-    limitPerCategory: opts.limitPerCategory,
-    logger: opts.logger,
-    prompt: opts.prompt,
-    promptStyle: opts.promptStyle,
-    maskChar: opts.maskChar,
-    enabledCategories: opts.enabledCategories,
-    existingFoldersByName: opts.existingFoldersByName,
-    folderNamesById: opts.folderNamesById,
-    stdin: opts.stdin,
-    stdout: opts.stdout,
-    isTTY: opts.isTTY,
-    onProgress: opts.onProgress,
-    onRuleSave: opts.onRuleSave,
-  });
-}

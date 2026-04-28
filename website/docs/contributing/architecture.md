@@ -30,7 +30,9 @@ The composition root. May import from anywhere under `src/` but is never importe
 
 Pure analysis and infrastructure code. Subdivided by concern:
 
-- **`bw.ts`** — the sole subprocess boundary. Only file allowed to call `child_process`.
+- **`bw.ts`** — the sole subprocess boundary (CLI adapter). Only file allowed to call `child_process` for `bw` commands.
+- **`bw-serve.ts`** — HTTP adapter implementing `BwAdapter` via `bw serve` REST API. Uses `node:http` instead of subprocesses. An alternative transport behind the same interface; opt-in via `bw_serve.enabled` config.
+- **`bw-serve-lifecycle.ts`** — manages the `bw serve` child process lifecycle: spawn, health-check polling, graceful stop. Registered with signal handlers for cleanup on SIGINT/SIGTERM.
 - **`domain/`** — shared types (`BwItem`, `Finding`, `PendingOp`). No logic, only type definitions and zod schemas.
 - **`analyze/`**, **`dedup/`**, **`strength/`**, **`folders/`** — pure analysis modules. No I/O, no `bw` calls, no `process.*` reads.
 - **`pending.ts`** — reads/writes the pending queue to disk.

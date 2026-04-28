@@ -53,5 +53,10 @@
   "logging": {
     "format": "text",
     "level": "info"
+  },
+  "bw_serve": {
+    "enabled": false,
+    "port": 8087,
+    "startup_timeout_ms": 5000
   }
 }
