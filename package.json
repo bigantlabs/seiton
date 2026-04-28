@@ -1,6 +1,6 @@
 {
 	"name": "@bigantlabs/seiton",
-	"version": "0.3.24",
+	"version": "0.3.25",
 	"description": "Interactive command-line auditor for Bitwarden vaults",
 	"type": "module",
 	"license": "MIT",
