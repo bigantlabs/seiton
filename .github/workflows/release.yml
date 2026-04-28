@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: ".nvmrc"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
           cache: "npm"
 
@@ -65,7 +65,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: ".nvmrc"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
       - name: Download artifacts
@@ -75,9 +75,6 @@ jobs:
 
       - name: Verify artifact checksum
         run: sha256sum -c SHA256SUMS
-
-      - name: Upgrade npm (Trusted Publishing requires npm >= 11.5.1)
-        run: npm install -g npm@latest
 
       - name: Publish from pre-built tarball
         run: npm publish bigantlabs-seiton-*.tgz --provenance --access public
